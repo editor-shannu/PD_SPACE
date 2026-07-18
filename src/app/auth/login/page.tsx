@@ -6,12 +6,12 @@
 
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useState, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard/patient';
@@ -128,5 +128,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="w-full max-w-md flex items-center justify-center p-8 bg-white rounded-lg shadow-lg">
+        <div className="text-gray-500 font-medium">Loading form...</div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

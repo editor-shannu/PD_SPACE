@@ -66,7 +66,7 @@ export const ConfirmExtraction: React.FC<ConfirmExtractionProps> = ({
     onConfirm(formData);
   };
 
-  const formatDateForInput = (date?: Date) => {
+  const formatDateForInput = (date?: Date | string) => {
     if (!date) return '';
     if (typeof date === 'string') {
       return date.split('T')[0];

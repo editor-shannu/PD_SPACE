@@ -21,7 +21,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<DocumentRespon
     // Get session
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id) {
+    if (!session?.user || !(session.user as any).id) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<DocumentRespon
     const DocumentModel = model<Document>('Document', documentSchema);
 
     // Fetch documents for user
-    const documents = await DocumentModel.find({ userId: session.user.id })
+    const documents = await DocumentModel.find({ userId: (session.user as any).id })
       .sort({ createdAt: -1 })
       .lean();
 

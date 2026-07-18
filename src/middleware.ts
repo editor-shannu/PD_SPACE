@@ -17,7 +17,7 @@ const apiProtectedRoutes = ['/api'];
 export default withAuth(
   function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
-    const token = request.nextauth.token;
+    const token = (request as any).nextauth?.token;
 
     // Check if it's an API route
     if (pathname.startsWith('/api')) {
