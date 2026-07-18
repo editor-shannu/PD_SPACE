@@ -103,25 +103,25 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                     </p>
                     <span
                       className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap tracking-wide ${getDocumentTypeColor(
-                        doc.extractedData.document_type
+                        doc.extractedData?.document_type || 'other'
                       )}`}
                     >
-                      {getDocumentTypeLabel(doc.extractedData.document_type)}
+                      {getDocumentTypeLabel(doc.extractedData?.document_type || 'other')}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 gap-1 text-xs text-gray-500 font-semibold md:grid-cols-2">
                     <div>
                       <span className="text-gray-400">Doctor:</span>{' '}
-                      {doc.extractedData.doctor_name || 'Not specified'}
+                      {doc.extractedData?.doctor_name || 'Not specified'}
                     </div>
                     <div>
                       <span className="text-gray-400">Date:</span>{' '}
-                      {formatDate(doc.extractedData.date)}
+                      {formatDate(doc.extractedData?.date)}
                     </div>
                   </div>
 
-                  {doc.extractedData.diagnosis && (
+                  {doc.extractedData?.diagnosis && (
                     <p className="text-xs text-gray-500 mt-2 font-medium">
                       <span className="text-gray-400 font-bold">Diagnosis:</span>{' '}
                       {doc.extractedData.diagnosis.substring(0, 100)}

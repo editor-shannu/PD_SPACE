@@ -152,6 +152,38 @@ export async function POST(req: NextRequest): Promise<NextResponse<ExtractRespon
       );
     }
 
+    // Call FastAPI Semantic Document Validation Service
+    try {
+      const fastApiUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://127.0.0.1:8000';
+      console.log(`[DEBUG] Calling FastAPI validation microservice at: ${fastApiUrl}/api/v1/validate-document`);
+      const validationResponse = await fetch(`${fastApiUrl}/api/v1/validate-document`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: raw_text }),
+      });
+
+      if (validationResponse.ok) {
+        const validationData = await validationResponse.json();
+        console.log('[DEBUG] FastAPI validation response:', validationData);
+        if (validationData.valid === false) {
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: validationData.reason || 'Wrong file: The uploaded document is not related to hospital/medical records.' 
+            },
+            { status: 400 }
+          );
+        }
+      } else {
+        console.warn('FastAPI validation service returned non-200 status:', validationResponse.status);
+      }
+    } catch (fastApiError) {
+      // Log the error but fallback to Gemini's internal validation to keep the app working if the microservice is down/unreachable
+      console.error('Failed to communicate with FastAPI validation service, falling back to Gemini:', fastApiError);
+    }
+
     // Get Gemini API key
     const geminiApiKey = process.env.GEMINI_API_KEY;
     if (!geminiApiKey) {
@@ -165,9 +197,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<ExtractRespon
     // Build extraction prompt
     const prompt = buildExtractionPrompt(raw_text, document_type_hint);
 
-    // Call Gemini API
+    // Call Gemini API (using standard gemini-1.5-flash model)
     const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
       {
         method: 'POST',
         headers: {

@@ -131,6 +131,40 @@ function LoginForm() {
             )}
           </button>
 
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              type="button"
+              onClick={async () => {
+                setError('');
+                setLoading(true);
+                try {
+                  console.log('[DEBUG] Dev Bypass clicked');
+                  const nextAuthResult = await signIn('credentials', {
+                    email:    'test-patient@mediflow.care',
+                    name:     'Test Patient',
+                    image:    '',
+                    uid:      'dev-patient-123',
+                    redirect: false,
+                    callbackUrl,
+                  });
+                  if (!nextAuthResult?.ok) {
+                    setError('Bypass failed: ' + (nextAuthResult?.error || 'unknown error'));
+                    setLoading(false);
+                    return;
+                  }
+                  window.location.href = callbackUrl;
+                } catch (err: any) {
+                  setError('Bypass error: ' + err.message);
+                  setLoading(false);
+                }
+              }}
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-3 bg-teal-600 hover:bg-teal-700 active:scale-[0.98] disabled:bg-gray-300 text-white font-bold py-4 rounded-2xl shadow-lg transition-all duration-200 text-sm"
+            >
+              Developer Bypass (Dev Only)
+            </button>
+          )}
+
           <p className="text-gray-400 text-xs text-center leading-relaxed">
             By continuing, you agree to MediFlow's{' '}
             <span className="text-[#003893] font-semibold cursor-pointer hover:underline">Terms of Service</span>

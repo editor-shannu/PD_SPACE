@@ -1,14 +1,8 @@
 import mongoose, { Mongoose } from 'mongoose';
 import dns from 'dns';
 
-// Configure Node.js DNS resolution to bypass local DNS SRV query failures
-if (typeof window === 'undefined' && process.env.NODE_ENV === 'development' && !process.env.VERCEL) {
-  try {
-    dns.setServers(['8.8.8.8', '8.8.4.4']);
-  } catch (e) {
-    console.warn('Failed to configure custom DNS servers, using default:', e);
-  }
-}
+// Configure Node.js DNS resolution to bypass local DNS SRV query failures if needed
+// Removed forced Google DNS servers override since it caused querySrv ECONNREFUSED on local network.
 
 interface CachedConnection {
   conn: Mongoose | null;
