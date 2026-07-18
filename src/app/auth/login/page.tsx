@@ -49,26 +49,26 @@ function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-md">
-      <div className="bg-white rounded-lg shadow-lg p-8">
+    <div className="w-full max-w-md px-4">
+      <div className="bg-white rounded-[32px] shadow-2xl p-8 border border-blue-50">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Patient Portal</h1>
-          <p className="text-gray-600">Sign in to upload your documents</p>
+          <h1 className="text-3xl font-bold text-[#003893] mb-2 tracking-tight">Heal Link</h1>
+          <p className="text-gray-500 text-sm">Sign in to your patient dashboard</p>
         </div>
 
         {/* Error Message */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-800 text-sm font-medium">{error}</p>
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl">
+            <p className="text-red-800 text-xs font-semibold">{error}</p>
           </div>
         )}
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Email Field */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Email Address
             </label>
             <input
@@ -79,13 +79,13 @@ function LoginForm() {
               placeholder="you@example.com"
               required
               disabled={isLoading}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition disabled:bg-gray-100"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#33aed6] focus:border-transparent outline-none transition disabled:bg-gray-50 text-gray-700"
             />
           </div>
 
           {/* Password Field */}
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Password
             </label>
             <input
@@ -96,7 +96,7 @@ function LoginForm() {
               placeholder="••••••••"
               required
               disabled={isLoading}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition disabled:bg-gray-100"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#33aed6] focus:border-transparent outline-none transition disabled:bg-gray-50 text-gray-700"
             />
           </div>
 
@@ -104,25 +104,25 @@ function LoginForm() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-lg transition duration-200 mt-6"
+            className="w-full bg-[#003893] hover:bg-[#0b4497] disabled:bg-gray-400 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition duration-200 mt-8 uppercase text-xs tracking-wider"
           >
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
         {/* Demo Credentials Note */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
-          <p className="text-blue-900 text-sm">
-            <span className="font-medium">Demo:</span> Enter any email and password to continue
+        <div className="mt-6 p-4 bg-blue-50/50 border border-blue-100 rounded-2xl text-center">
+          <p className="text-[#003893] text-xs">
+            <span className="font-bold">Demo Mode:</span> Enter any email/password to sign in
           </p>
         </div>
 
         {/* Register Link */}
         <div className="mt-6 text-center">
-          <p className="text-gray-600 text-sm">
+          <p className="text-gray-400 text-xs">
             Don't have an account?{' '}
-            <Link href="/auth/register" className="text-blue-600 hover:text-blue-700 font-medium">
-              Sign up here
+            <Link href="/" className="text-[#33aed6] hover:underline font-bold">
+              Go to splash screen
             </Link>
           </p>
         </div>
