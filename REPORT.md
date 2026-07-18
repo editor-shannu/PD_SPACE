@@ -126,10 +126,8 @@ App Root
 
 ```
 project-root/
-├── .env.local                          (🔐 Not in git - Create manually)
+├── secrets.env                         (🔐 Not in git - Create manually to store actual keys)
 ├── .gitignore                          (✅ Excludes secrets)
-├── .env.example                        (📝 Template)
-├── secrets.env                         (🔐 Your actual keys)
 ├── package.json                        (📦 Dependencies)
 ├── tsconfig.json                       (⚙️ TypeScript config)
 ├── next.config.js                      (⚙️ Next.js config)
@@ -350,24 +348,14 @@ npm install
 
 ### Step 2: Setup Environment Variables
 
-Create `.env.local` in project root:
+Ensure that your `secrets.env` file in the root directory contains the following configuration variables:
+- `MONGODB_URI` - MongoDB Atlas connection string (URL-encode `@` as `%40` in password if needed)
+- `GEMINI_API_KEY` - Google Gemini API Key
+- `NEXTAUTH_SECRET` - NextAuth secret for session signing
+- `NEXTAUTH_URL` - NextAuth base URL (e.g. `http://localhost:3000`)
+- `NEXT_PUBLIC_API_URL` - API base URL (e.g. `http://localhost:3000/api`)
 
-```env
-# From secrets.env - MongoDB connection (URL-encode @ as %40 in password)
-MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/patient_docs
-
-# From secrets.env - Gemini API key
-GEMINI_API_KEY=your_gemini_api_key
-
-# From secrets.env - NextAuth secret
-NEXTAUTH_SECRET=your_nextauth_secret
-
-# NextAuth configuration
-NEXTAUTH_URL=http://localhost:3000
-
-# API configuration
-NEXT_PUBLIC_API_URL=http://localhost:3000/api
-```
+The project is configured to automatically load these variables from `secrets.env` at startup.
 
 ### Step 3: Run Development Server
 
@@ -398,7 +386,7 @@ Server starts at: `http://localhost:3000`
 | `NEXTAUTH_URL` | ✅ | Set value | `http://localhost:3000` (dev) |
 | `NEXT_PUBLIC_API_URL` | ✅ | Set value | `http://localhost:3000/api` (dev) |
 
-**NEVER commit `.env.local` to git — it's in `.gitignore`**
+**NEVER commit `secrets.env` to git — it's in `.gitignore`**
 
 ---
 
@@ -547,18 +535,17 @@ CMD ["npm", "start"]
 **Build & Run:**
 ```bash
 docker build -t patient-upload .
-docker run -p 3000:3000 --env-file .env.local patient-upload
+docker run -p 3000:3000 --env-file secrets.env patient-upload
 ```
 
 ### Environment Variables for Production
 
-```env
-MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/patient_docs
-GEMINI_API_KEY=your_production_key
-NEXTAUTH_SECRET=generate_new_secure_key
-NEXTAUTH_URL=https://yourdomain.com
-NEXT_PUBLIC_API_URL=https://yourdomain.com/api
-```
+For production environments, ensure the following environment variables are securely set:
+- `MONGODB_URI` - Connection string to your production MongoDB cluster
+- `GEMINI_API_KEY` - Production Google Gemini API Key
+- `NEXTAUTH_SECRET` - Securely generated random key (e.g., via `openssl rand -base64 32`)
+- `NEXTAUTH_URL` - Production URL of your site (e.g., `https://yourdomain.com`)
+- `NEXT_PUBLIC_API_URL` - Production URL of your API (e.g., `https://yourdomain.com/api`)
 
 ---
 
@@ -566,7 +553,7 @@ NEXT_PUBLIC_API_URL=https://yourdomain.com/api
 
 ### Issue: "MONGODB_URI is not set"
 **Solution:**
-- Ensure `.env.local` exists in project root
+- Ensure `secrets.env` exists in project root
 - Verify MONGODB_URI is set correctly
 - Restart dev server: `npm run dev`
 
@@ -592,7 +579,7 @@ PORT=3001 npm run dev
 
 ### Issue: "NextAuth configuration error"
 **Solution:**
-- Ensure `.env.local` has NEXTAUTH_SECRET and NEXTAUTH_URL
+- Ensure `secrets.env` has NEXTAUTH_SECRET and NEXTAUTH_URL
 - Restart dev server
 - Clear browser cache
 
@@ -662,7 +649,7 @@ For issues or questions:
 
 ## ✅ Checklist for Production
 
-- [ ] All secrets in `.env.local` (not committed to git)
+- [ ] All secrets in `secrets.env` (not committed to git)
 - [ ] MongoDB production cluster setup
 - [ ] Gemini API key rotated
 - [ ] NEXTAUTH_SECRET is strong and unique

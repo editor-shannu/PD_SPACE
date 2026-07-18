@@ -20,14 +20,7 @@ npm install
 ```
 
 ### 2. Setup Environment
-Create `.env.local` in project root with:
-```env
-MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/patient_docs
-GEMINI_API_KEY=your_gemini_api_key
-NEXTAUTH_SECRET=generate_with_openssl_rand_-base64_32
-NEXTAUTH_URL=http://localhost:3000
-NEXT_PUBLIC_API_URL=http://localhost:3000/api
-```
+Ensure that the `secrets.env` file in the project root is populated with your specific credentials. The application is configured to load these values automatically at startup.
 
 ### 3. Run
 ```bash
@@ -84,7 +77,7 @@ Save to MongoDB
 ## 🔐 Security
 
 - ✅ Environment variables for all secrets
-- ✅ `.env.local` in `.gitignore`
+- ✅ `secrets.env` in `.gitignore`
 - ✅ NextAuth session management
 - ✅ Protected routes (require auth)
 - ✅ Zod validation on all inputs
@@ -113,7 +106,7 @@ See `REPORT.md` for complete API documentation.
 
 | Issue | Solution |
 |-------|----------|
-| "MONGODB_URI not set" | Create `.env.local` in project root |
+| "MONGODB_URI not set" | Create `secrets.env` in project root |
 | "Cannot connect to MongoDB" | Verify connection string, IP whitelist in MongoDB Atlas |
 | "NextAuth error" | Ensure NEXTAUTH_SECRET and NEXTAUTH_URL are set |
 | "Port 3000 in use" | `PORT=3001 npm run dev` |
@@ -150,7 +143,7 @@ npm start
 
 ## ✅ Production Checklist
 
-- [ ] All secrets in `.env.local`
+- [ ] All secrets in `secrets.env`
 - [ ] MongoDB production cluster
 - [ ] Gemini API configured
 - [ ] NextAuth properly secured
@@ -162,7 +155,7 @@ npm start
 ## 📞 Help
 
 1. Check error message in browser console
-2. Verify `.env.local` is set correctly
+2. Verify `secrets.env` is set correctly
 3. Check MongoDB Atlas & Google Cloud Console
 4. Review `REPORT.md` for detailed troubleshooting
 
