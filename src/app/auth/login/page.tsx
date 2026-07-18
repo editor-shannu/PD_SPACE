@@ -50,11 +50,7 @@ function LoginForm() {
       }
 
       console.log('[DEBUG] Redirecting to callbackUrl:', callbackUrl);
-      if (callbackUrl.startsWith('http://') || callbackUrl.startsWith('https://')) {
-        window.location.href = callbackUrl;
-      } else {
-        router.push(callbackUrl);
-      }
+      window.location.href = callbackUrl;
     } catch (err: any) {
       console.error('[DEBUG] Google sign-in error:', err);
       if (err.code === 'auth/popup-closed-by-user') {
