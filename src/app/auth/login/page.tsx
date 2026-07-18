@@ -22,14 +22,16 @@ function LoginForm() {
   const [isLoading, setLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
+    console.log('[DEBUG] Continue with Google clicked');
     setError('');
     setLoading(true);
     try {
-      // 1. Firebase handles Google auth client-side using popup
+      console.log('[DEBUG] Calling signInWithPopup...');
       const result = await signInWithPopup(auth, googleProvider);
       const user   = result.user;
+      console.log('[DEBUG] signInWithPopup resolved, user:', user.email, user.uid);
 
-      // 2. Pass verified user fields directly to NextAuth
+      console.log('[DEBUG] Calling NextAuth credentials signIn...');
       const nextAuthResult = await signIn('credentials', {
         email:    user.email    ?? '',
         name:     user.displayName ?? user.email?.split('@')[0] ?? 'Patient',
@@ -38,17 +40,19 @@ function LoginForm() {
         redirect: false,
         callbackUrl,
       });
+      console.log('[DEBUG] NextAuth credentials signIn resolved:', nextAuthResult);
 
       if (!nextAuthResult?.ok) {
-        console.error('NextAuth error:', nextAuthResult?.error);
+        console.error('[DEBUG] NextAuth error:', nextAuthResult?.error);
         setError('Sign-in failed. Please try again.');
         setLoading(false);
         return;
       }
 
+      console.log('[DEBUG] Redirecting to callbackUrl:', callbackUrl);
       router.push(callbackUrl);
     } catch (err: any) {
-      console.error('Google sign-in error:', err);
+      console.error('[DEBUG] Google sign-in error:', err);
       if (err.code === 'auth/popup-closed-by-user') {
         setError('Sign-in was cancelled. Please try again.');
       } else if (err.code === 'auth/popup-blocked') {
