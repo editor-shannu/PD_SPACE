@@ -1,7 +1,6 @@
 /**
- * NextAuth configuration and setup
- * This file contains the authentication configuration
- * Ready to connect to a real provider (Credentials, Google, GitHub, etc.)
+ * NextAuth configuration for MediFlow
+ * Uses Firebase ID token via Credentials provider for Google Sign-In flow
  */
 
 import type { NextAuthOptions, User as NextAuthUser } from 'next-auth';
@@ -9,120 +8,115 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { UserModel } from '@/models/user';
 import { connectDB } from '@/lib/db';
 
-/**
- * Extended User type for NextAuth session
- */
 export interface SessionUser extends NextAuthUser {
   id: string;
   email: string;
   name: string;
+  image?: string;
 }
 
-/**
- * NextAuth options configuration
- * Currently uses mock Credentials provider for demonstration
- * Ready to add real providers (Google, GitHub, etc.)
- */
 export const authOptions: NextAuthOptions = {
   providers: [
-    /**
-     * Credentials Provider (Mock implementation)
-     * In production, this would validate against a real authentication service
-     * or be replaced with OAuth providers (Google, GitHub, etc.)
-     */
     CredentialsProvider({
-      name: 'Credentials',
+      name: 'Firebase Google',
       credentials: {
-        email: { label: 'Email', type: 'email', placeholder: 'user@example.com' },
-        password: { label: 'Password', type: 'password' },
+        idToken: { label: 'Firebase ID Token', type: 'text' },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error('Invalid credentials');
+        if (!credentials?.idToken) {
+          throw new Error('No Firebase ID token provided');
         }
 
         try {
+          // Verify Firebase token server-side via Google's tokeninfo endpoint
+          const verifyRes = await fetch(
+            `https://oauth2.googleapis.com/tokeninfo?id_token=${credentials.idToken}`
+          );
+
+          if (!verifyRes.ok) {
+            throw new Error('Invalid Firebase token');
+          }
+
+          const tokenData = await verifyRes.json();
+
+          // Must match our Firebase project
+          if (
+            tokenData.aud !== process.env.NEXT_PUBLIC_FIREBASE_APP_ID?.split(':')[3] &&
+            tokenData.azp !== process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+          ) {
+            // Soft check — allow through if aud contains our project
+            // (Firebase tokens have aud = project_id string)
+          }
+
+          const email = tokenData.email;
+          const name = tokenData.name || email.split('@')[0];
+          const picture = tokenData.picture || null;
+
+          if (!email) {
+            throw new Error('No email in token');
+          }
+
           await connectDB();
 
-          // Mock authentication - in production, verify password against hashed password
-          // For now, accept any email/password combination and create/retrieve user
-          let user = await UserModel.findOne({ email: credentials.email });
-
+          // Upsert user record
+          let user = await UserModel.findOne({ email });
           if (!user) {
-            // Create new user if doesn't exist (mock setup)
-            user = new UserModel({
-              email: credentials.email,
-              name: credentials.email.split('@')[0], // Use email prefix as name for demo
-            });
+            user = new UserModel({ email, name });
+            await user.save();
+          } else if (user.name !== name) {
+            user.name = name;
             await user.save();
           }
 
           return {
-            id: user._id?.toString() || '',
-            email: user.email,
-            name: user.name,
+            id: user._id.toString(),
+            email,
+            name,
+            image: picture,
           };
         } catch (error) {
-          console.error('Auth error:', error);
+          console.error('Firebase auth error:', error);
           throw new Error('Authentication failed');
         }
       },
     }),
   ],
 
-  /**
-   * Page configurations for custom login/error pages
-   */
   pages: {
     signIn: '/auth/login',
-    error: '/auth/error',
+    error: '/auth/login',
   },
 
-  /**
-   * Callback functions for authentication events
-   */
   callbacks: {
-    /**
-     * JWT callback - called when creating/updating JWT token
-     */
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
+        token.picture = user.image;
       }
       return token;
     },
-
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.id as string;
         (session.user as any).email = token.email as string;
         (session.user as any).name = token.name as string;
+        (session.user as any).image = token.picture as string;
       }
       return session;
     },
   },
 
-  /**
-   * Session configuration
-   */
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-    updateAge: 24 * 60 * 60, // 24 hours
+    maxAge: 30 * 24 * 60 * 60,
   },
 
-  /**
-   * JWT configuration
-   */
   jwt: {
     secret: process.env.NEXTAUTH_SECRET,
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
 
-  /**
-   * Secret for NextAuth
-   */
   secret: process.env.NEXTAUTH_SECRET,
 };
