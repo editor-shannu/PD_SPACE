@@ -1,18 +1,11 @@
-/**
- * NextAuth configuration for MediFlow
- * Strategy: Firebase handles Google auth client-side.
- * Client passes verified user fields (email, name, image, uid) directly.
- * Server upserts user record in MongoDB and creates a session.
- *
- * Note: We trust these credentials because Firebase already verified
- * the Google token on the client. For full server-side verification,
- * add Firebase Admin SDK.
- */
-
 import type { NextAuthOptions, User as NextAuthUser } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { UserModel } from '@/models/user';
 import { connectDB } from '@/lib/db';
+
+if (process.env.NODE_ENV === 'production') {
+  process.env.NEXTAUTH_URL = 'https://mediflow.shanmukhmedisetty.site';
+}
 
 export interface SessionUser extends NextAuthUser {
   id: string;

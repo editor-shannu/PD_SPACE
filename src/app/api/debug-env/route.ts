@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { authOptions } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,5 +8,6 @@ export async function GET() {
     NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'NOT_SET',
     VERCEL_URL: process.env.VERCEL_URL || 'NOT_SET',
     NODE_ENV: process.env.NODE_ENV || 'NOT_SET',
+    authOptionsPresent: !!authOptions,
   });
 }

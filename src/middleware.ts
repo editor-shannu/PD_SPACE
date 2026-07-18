@@ -1,12 +1,9 @@
-/**
- * NextAuth middleware to protect routes
- * - Allow unauthenticated access to /api/health only
- * - Redirect to login for /dashboard/* routes if not authenticated
- * - Return 401 for /api/* routes if no session
- */
-
 import { withAuth } from 'next-auth/middleware';
 import { NextRequest, NextResponse } from 'next/server';
+
+if (process.env.NODE_ENV === 'production') {
+  process.env.NEXTAUTH_URL = 'https://mediflow.shanmukhmedisetty.site';
+}
 
 /**
  * Protected routes that require authentication
