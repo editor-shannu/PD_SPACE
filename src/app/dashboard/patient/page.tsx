@@ -37,9 +37,18 @@ export default function PatientDashboard() {
     return new Date(d.extractedData.follow_up_date) > new Date();
   });
 
+  const [mounted, setMounted] = useState(false);
+  const [dateStr, setDateStr] = useState('');
+  const [greeting, setGreeting] = useState('Good morning');
+
+  useEffect(() => {
+    setMounted(true);
+    setDateStr(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }));
+    const hr = new Date().getHours();
+    setGreeting(hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening');
+  }, []);
+
   const firstName = session?.user?.name?.split(' ')[0] || 'Patient';
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -48,15 +57,19 @@ export default function PatientDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-gray-400 text-xs font-semibold mb-0.5">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            {mounted ? dateStr : 'Loading...'}
           </p>
           <h1 className="text-2xl font-black text-[#003893] tracking-tight">
-            {greeting}, {firstName}! 👋
+            {mounted ? `${greeting}, ${firstName}! 👋` : `Hello, ${firstName}! 👋`}
           </h1>
           <p className="text-gray-400 text-sm mt-0.5">How are you feeling today?</p>
         </div>
         {/* Avatar */}
-        {session?.user?.image ? (
+        {!mounted ? (
+          <div className="w-12 h-12 rounded-2xl bg-[#2ab8d8] flex items-center justify-center text-white font-black text-lg shadow-md shadow-[#2ab8d8]/30">
+            P
+          </div>
+        ) : session?.user?.image ? (
           <Image
             src={session.user.image}
             alt="Profile"

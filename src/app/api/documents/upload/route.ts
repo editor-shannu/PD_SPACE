@@ -7,9 +7,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
-import fs from 'fs';
-import path from 'path';
-import { promises as fsPromises } from 'fs';
 
 // Maximum file size: 20MB
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -69,34 +66,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadRespons
     // Connect to database
     await connectDB();
 
-    // Create temporary storage for file
-    const tmpDir = path.join(process.cwd(), '.tmp');
-    if (!fs.existsSync(tmpDir)) {
-      fs.mkdirSync(tmpDir, { recursive: true });
-    }
-
     // Generate unique file ID
     const fileId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const tempFilePath = path.join(tmpDir, fileId);
-
-    // Convert File to Buffer and save
-    const buffer = await file.arrayBuffer();
-    await fsPromises.writeFile(tempFilePath, Buffer.from(buffer));
-
-    // Get file info
-    const fileStats = await fsPromises.stat(tempFilePath);
-
-    // Determine file type
-    let fileTypeCategory = 'image';
-    if (file.type === 'application/pdf') {
-      fileTypeCategory = 'pdf';
-    }
-
-    // Clean up temp file (in production, you'd store this in GridFS)
-    // For now, we'll store file reference in metadata
-    // TODO: Implement actual GridFS storage
-    await fsPromises.unlink(tempFilePath);
-
     const uploadedAt = new Date().toISOString();
 
     return NextResponse.json(
@@ -104,7 +75,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadRespons
         success: true,
         fileId,
         fileName: file.name,
-        fileSize: fileStats.size,
+        fileSize: file.size,
         mimeType: file.type,
         uploadedAt,
       },
