@@ -60,9 +60,9 @@ export const authOptions: NextAuthOptions = {
             name,
             image,
           };
-        } catch (error) {
+        } catch (error: any) {
           console.error('MediFlow auth error:', error);
-          throw new Error('Authentication failed — could not reach database');
+          throw new Error(`Authentication failed — ${error.message || 'database error'}`);
         }
       },
     }),
