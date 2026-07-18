@@ -1,5 +1,22 @@
 import { createWorker } from 'tesseract.js';
 
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') return resolve();
+    const scripts = document.getElementsByTagName('script');
+    for (let i = 0; i < scripts.length; i++) {
+      if (scripts[i].src === src) {
+        return resolve();
+      }
+    }
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = () => resolve();
+    script.onerror = (err) => reject(err);
+    document.body.appendChild(script);
+  });
+}
+
 /**
  * Utility function to extract text from image/PDF using Tesseract.js client-side
  */
@@ -8,24 +25,47 @@ export async function extractTextFromDocument(
   onProgress?: (progress: number) => void
 ): Promise<string> {
   if (file.type === 'application/pdf') {
-    // Tesseract.js doesn't natively support PDF extraction in the browser.
-    // Return a realistic mock text extraction for medical PDFs to ensure the flow is robust.
-    if (onProgress) {
-      onProgress(0.2);
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      onProgress(0.6);
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      onProgress(1.0);
+    if (onProgress) onProgress(0.1);
+    try {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+      
+      const pdfjsLib = (window as any).pdfjsLib;
+      if (!pdfjsLib) {
+        throw new Error('PDF.js failed to load.');
+      }
+      
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      
+      if (onProgress) onProgress(0.3);
+      
+      const arrayBuffer = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      
+      if (onProgress) onProgress(0.5);
+      
+      let fullText = '';
+      const numPages = pdf.numPages;
+      
+      for (let i = 1; i <= numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+        fullText += pageText + '\n';
+        
+        if (onProgress) {
+          onProgress(0.5 + (i / numPages) * 0.4);
+        }
+      }
+      
+      if (onProgress) onProgress(1.0);
+      
+      const trimmedText = fullText.trim();
+      return trimmedText || 'This PDF has no selectable text (it might be scanned).';
+    } catch (error) {
+      console.error('Failed to parse PDF:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to extract text from PDF');
     }
-    return `Patient Medical Report
-Date: 2026-07-18
-Doctor: Dr. Sarah Connor
-Diagnosis: Hypertension and Mild Vitamin D Deficiency
-Medications:
-1. Lisinopril 10mg - 1 tablet daily
-2. Vitamin D3 2000 IU - 1 capsule daily in the morning
-Follow-up: 2026-10-18
-Notes: Patient should monitor blood pressure twice daily and limit sodium intake.`;
   }
 
   // Tesseract.js client-side worker
