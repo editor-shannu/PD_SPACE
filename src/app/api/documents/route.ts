@@ -32,9 +32,9 @@ export async function GET(req: NextRequest): Promise<NextResponse<DocumentRespon
     await connectDB();
 
     // Fetch documents for user
-    const documents = await DocumentModel.find({ userId: (session.user as any).id })
+    const documents = (await DocumentModel.find({ userId: (session.user as any).id })
       .sort({ createdAt: -1 })
-      .lean();
+      .lean()) as unknown as Document[];
 
     return NextResponse.json(
       {
