@@ -1,14 +1,14 @@
 /**
  * MediFlow — Login Page
  * Mobile-app style layout: constrained card centered on desktop, full-screen on mobile
- * Google Sign-In via Firebase redirect → passes user fields to NextAuth
+ * Google Sign-In via Firebase popup → passes user fields to NextAuth
  */
 
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { signInWithRedirect, getRedirectResult } from 'firebase/auth';
+import { signInWithPopup } from 'firebase/auth';
 import { signIn } from 'next-auth/react';
 import { auth, googleProvider } from '@/lib/firebase';
 import Link from 'next/link';
@@ -21,61 +21,43 @@ function LoginForm() {
   const [error, setError]       = useState('');
   const [isLoading, setLoading] = useState(false);
 
-  // Check for redirect result on page load
-  useEffect(() => {
-    // Detect if there's a pending Firebase redirect state in session storage
-    // to show the loading spinner immediately while checking result
-    const hasRedirectState = typeof window !== 'undefined' && 
-      Object.keys(sessionStorage).some(key => key.startsWith('firebase:redirect'));
-
-    if (hasRedirectState) {
-      setLoading(true);
-    }
-
-    getRedirectResult(auth)
-      .then(async (result) => {
-        if (result) {
-          setLoading(true);
-          const user = result.user;
-
-          // Pass verified user fields directly to NextAuth
-          const nextAuthResult = await signIn('credentials', {
-            email:    user.email    ?? '',
-            name:     user.displayName ?? user.email?.split('@')[0] ?? 'Patient',
-            image:    user.photoURL ?? '',
-            uid:      user.uid      ?? '',
-            redirect: false,
-            callbackUrl,
-          });
-
-          if (!nextAuthResult?.ok) {
-            console.error('NextAuth error:', nextAuthResult?.error);
-            setError('Sign-in failed. Please try again.');
-            setLoading(false);
-            return;
-          }
-
-          router.push(callbackUrl);
-        } else {
-          setLoading(false);
-        }
-      })
-      .catch((err: any) => {
-        console.error('Redirect sign-in error:', err);
-        setError(err.message || 'Authentication failed. Please try again.');
-        setLoading(false);
-      });
-  }, [router, callbackUrl]);
-
   const handleGoogleSignIn = async () => {
     setError('');
     setLoading(true);
     try {
-      // Use redirect instead of popup to bypass COOP/cross-origin browser issues
-      await signInWithRedirect(auth, googleProvider);
+      // 1. Firebase handles Google auth client-side using popup
+      const result = await signInWithPopup(auth, googleProvider);
+      const user   = result.user;
+
+      // 2. Pass verified user fields directly to NextAuth
+      const nextAuthResult = await signIn('credentials', {
+        email:    user.email    ?? '',
+        name:     user.displayName ?? user.email?.split('@')[0] ?? 'Patient',
+        image:    user.photoURL ?? '',
+        uid:      user.uid      ?? '',
+        redirect: false,
+        callbackUrl,
+      });
+
+      if (!nextAuthResult?.ok) {
+        console.error('NextAuth error:', nextAuthResult?.error);
+        setError('Sign-in failed. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      router.push(callbackUrl);
     } catch (err: any) {
       console.error('Google sign-in error:', err);
-      setError(err.message || 'Authentication failed. Please try again.');
+      if (err.code === 'auth/popup-closed-by-user') {
+        setError('Sign-in was cancelled. Please try again.');
+      } else if (err.code === 'auth/popup-blocked') {
+        setError('Popup blocked — please allow popups for this site.');
+      } else if (err.code === 'auth/network-request-failed') {
+        setError('Network error. Check your connection.');
+      } else {
+        setError(err.message || 'Authentication failed. Please try again.');
+      }
       setLoading(false);
     }
   };
