@@ -1,4 +1,4 @@
-import { model, Schema } from 'mongoose';
+import { model, Schema, models } from 'mongoose';
 import { Document as IDocument, ExtractedData } from '@/types/documents';
 
 const medicationSchema = new Schema(
@@ -40,4 +40,4 @@ const documentSchema = new Schema<IDocument>(
   { timestamps: true }
 );
 
-export const DocumentModel = model<IDocument>('Document', documentSchema);
+export const DocumentModel = models.Document || model<IDocument>('Document', documentSchema);

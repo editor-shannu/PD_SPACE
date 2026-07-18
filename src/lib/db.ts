@@ -1,4 +1,14 @@
 import mongoose, { Mongoose } from 'mongoose';
+import dns from 'dns';
+
+// Configure Node.js DNS resolution to bypass local DNS SRV query failures
+if (typeof window === 'undefined') {
+  try {
+    dns.setServers(['8.8.8.8', '8.8.4.4']);
+  } catch (e) {
+    console.warn('Failed to configure custom DNS servers, using default:', e);
+  }
+}
 
 interface CachedConnection {
   conn: Mongoose | null;

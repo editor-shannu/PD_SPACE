@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { DocumentUpload } from '@/components/DocumentUpload';
 import { OCRPreview } from '@/components/OCRPreview';
 import { ConfirmExtraction } from '@/components/ConfirmExtraction';
 import { DocumentList } from '@/components/DocumentList';
 import { ExtractedData, Document } from '@/types/documents';
+import { extractTextFromDocument, extractStructuredData } from '@/utils/ocr';
 
 type UploadStep = 'upload' | 'ocr' | 'confirmation' | 'success' | 'list';
 
@@ -16,108 +18,94 @@ interface UploadState {
   rawText?: string;
   extractedData?: ExtractedData;
   documents?: Document[];
+  ocrProgress?: number;
 }
 
-// Mock function to simulate OCR and extraction
-// In production, this would call the backend API
-const mockOCRAndExtraction = async (fileId: string): Promise<ExtractedData> => {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-
-  return {
-    document_type: 'prescription',
-    doctor_name: 'Dr. John Smith',
-    date: new Date('2024-01-15'),
-    diagnosis: 'Type 2 Diabetes Mellitus',
-    medications: [
-      {
-        name: 'Metformin',
-        dosage: '500mg',
-        frequency: 'Twice daily',
-      },
-      {
-        name: 'Lisinopril',
-        dosage: '10mg',
-        frequency: 'Once daily',
-      },
-    ],
-    follow_up_date: new Date('2024-02-15'),
-    notes: 'Monitor blood glucose levels regularly. Schedule follow-up lab tests.',
-  };
-};
-
 const PatientUploadPage: React.FC = () => {
-  const [currentStep, setCurrentStep] = useState<UploadStep>('upload'); // Default to upload to start the flow immediately
+  const { data: session } = useSession();
+  const [currentStep, setCurrentStep] = useState<UploadStep>('list'); // Start with the list page of documents
   const [uploadState, setUploadState] = useState<UploadState>({});
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [documents, setDocuments] = useState<Document[]>([]);
 
-  // Mock patient ID - in real app, get from session/context
-  const patientId = 'patient-123';
+  const patientId = (session?.user as any)?.id || 'patient-123';
 
-  // Load documents on mount (mock)
+  // Load documents on mount from MongoDB
   useEffect(() => {
-    // In real app, fetch from API
-    setDocuments([
-      {
-        _id: '1',
-        userId: patientId,
-        fileName: 'Prescription_Jan2024.pdf',
-        fileType: 'pdf',
-        rawText: 'Dr. Smith prescription...',
-        extractedData: {
-          document_type: 'prescription',
-          doctor_name: 'Dr. Smith',
-          date: new Date('2024-01-15'),
-          diagnosis: 'Hypertension',
-          medications: [
-            { name: 'Lisinopril', dosage: '10mg', frequency: 'Once daily' },
-          ],
-          notes: 'Take with food',
-        },
-        isConfirmed: true,
-        createdAt: new Date('2024-01-15'),
-      },
-    ]);
-  }, [patientId]);
+    const fetchDocuments = async () => {
+      if (!session) return;
+      try {
+        const response = await fetch('/api/documents');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.documents) {
+            setDocuments(data.documents);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch documents:', err);
+      }
+    };
+    fetchDocuments();
+  }, [session]);
 
   const handleUploadSuccess = useCallback(
-    (fileId: string, fileName: string, mimeType: string, rawText: string) => {
+    async (fileId: string, fileName: string, mimeType: string, file: File) => {
       setError('');
       setUploadState({
         fileId,
         fileName,
         mimeType,
-        rawText,
+        ocrProgress: 0,
       });
       setCurrentStep('ocr');
-      handleOCRExtraction(fileId);
+      setIsLoading(true);
+
+      try {
+        // Step 1: Run real client-side Tesseract.js OCR
+        const rawText = await extractTextFromDocument(file, (progress) => {
+          setUploadState((prev) => ({
+            ...prev,
+            ocrProgress: Math.round(progress * 100),
+          }));
+        });
+
+        setUploadState((prev) => ({
+          ...prev,
+          rawText,
+        }));
+
+        // Determine type hint based on file name contents
+        let typeHint: 'prescription' | 'diagnostic_report' | 'discharge_summary' | 'other' = 'other';
+        const lowerName = fileName.toLowerCase();
+        if (lowerName.includes('prescription')) {
+          typeHint = 'prescription';
+        } else if (lowerName.includes('report') || lowerName.includes('test') || lowerName.includes('lab')) {
+          typeHint = 'diagnostic_report';
+        } else if (lowerName.includes('summary') || lowerName.includes('discharge')) {
+          typeHint = 'discharge_summary';
+        }
+
+        // Step 2: Run Gemini API structure extraction
+        const extractedData = await extractStructuredData(rawText, typeHint);
+
+        setUploadState((prev) => ({
+          ...prev,
+          extractedData,
+        }));
+
+        setCurrentStep('confirmation');
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Processing failed';
+        setError(errorMessage);
+        setCurrentStep('upload');
+      } finally {
+        setIsLoading(false);
+      }
     },
     []
   );
-
-  const handleOCRExtraction = useCallback(async (fileId: string) => {
-    setIsLoading(true);
-    setError('');
-
-    try {
-      const extractedData = await mockOCRAndExtraction(fileId);
-
-      setUploadState((prev) => ({
-        ...prev,
-        extractedData,
-      }));
-
-      setCurrentStep('confirmation');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Extraction failed';
-      setError(errorMessage);
-      setCurrentStep('upload');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
 
   const handleConfirmExtraction = useCallback(async (data: ExtractedData) => {
     setIsLoading(true);
@@ -275,13 +263,43 @@ const PatientUploadPage: React.FC = () => {
             </div>
           )}
 
-          {currentStep === 'ocr' && uploadState.rawText && (
-            <div className="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-              <OCRPreview
-                rawText={uploadState.rawText}
-                fileName={uploadState.fileName}
-                confidence={85}
-              />
+          {currentStep === 'ocr' && (
+            <div className="w-full max-w-2xl bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center space-y-6 animate-fade-in">
+              <div className="mx-auto h-16 w-16 bg-blue-50 rounded-full flex items-center justify-center text-[#33aed6] animate-pulse">
+                <svg className="w-8 h-8 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3 3L22 4" />
+                </svg>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-[#003893] tracking-tight">
+                  {!uploadState.rawText ? 'Scanning Document (OCR)' : 'Analyzing with AI'}
+                </h3>
+                <p className="text-xs text-gray-400 font-semibold max-w-xs mx-auto">
+                  {!uploadState.rawText
+                    ? `Running Tesseract.js client OCR: ${uploadState.ocrProgress || 0}% complete`
+                    : 'Gemini is processing the raw text to extract structured medical details...'}
+                </p>
+              </div>
+              
+              {/* Progress bar */}
+              <div className="w-full bg-gray-100 rounded-full h-2.5 max-w-md mx-auto overflow-hidden">
+                <div
+                  className="bg-[#33aed6] h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${!uploadState.rawText ? (uploadState.ocrProgress || 10) : 100}%`
+                  }}
+                />
+              </div>
+
+              {uploadState.rawText && (
+                <div className="pt-6 text-left border-t border-gray-100">
+                  <OCRPreview
+                    rawText={uploadState.rawText}
+                    fileName={uploadState.fileName}
+                    confidence={85}
+                  />
+                </div>
+              )}
             </div>
           )}
 

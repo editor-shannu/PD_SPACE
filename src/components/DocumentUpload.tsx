@@ -4,7 +4,7 @@ import React, { useState, useCallback } from 'react';
 
 interface DocumentUploadProps {
   patientId: string;
-  onUploadSuccess: (fileId: string, fileName: string, mimeType: string, rawText: string) => void;
+  onUploadSuccess: (fileId: string, fileName: string, mimeType: string, file: File) => void;
   onError: (error: string) => void;
   isLoading?: boolean;
 }
@@ -107,9 +107,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
           try {
             const response = JSON.parse(xhr.responseText);
             if (response.success) {
-              // Simulate OCR extraction - in real app, this happens on backend
-              const fakeRawText = `Extracted text from ${selectedFile.name}\n\nThis is a placeholder for OCR-extracted text.`;
-              onUploadSuccess(response.fileId, response.fileName, response.mimeType, fakeRawText);
+              onUploadSuccess(response.fileId, response.fileName, response.mimeType, selectedFile);
               setSelectedFile(null);
               setUploadProgress(0);
             } else {

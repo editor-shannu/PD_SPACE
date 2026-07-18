@@ -4,6 +4,7 @@
 import type { Metadata } from 'next';
 import type React from 'react';
 import { Providers } from '@/components/Providers';
+import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Patient Document Upload',
