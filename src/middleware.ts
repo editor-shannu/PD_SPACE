@@ -21,8 +21,8 @@ export default withAuth(
 
       // Check if it's an API route
       if (pathname.startsWith('/api')) {
-        // Allow /api/health without authentication
-        if (pathname === '/api/health') {
+        // Allow /api/health and /api/debug-env without authentication
+        if (pathname === '/api/health' || pathname === '/api/debug-env') {
           return NextResponse.next();
         }
 
@@ -53,8 +53,8 @@ export default withAuth(
         authorized({ token, req }) {
           const { pathname } = req.nextUrl;
 
-          // Allow health without token
-          if (pathname === '/api/health') {
+          // Allow health and debug-env without token
+          if (pathname === '/api/health' || pathname === '/api/debug-env') {
             return true;
           }
 
@@ -78,5 +78,5 @@ export default withAuth(
  * Matcher configuration - which routes should be processed by this middleware
  */
 export const config = {
-  matcher: ['/dashboard/:path*', '/api/((?!health).*)', '/auth/:path*'],
+  matcher: ['/dashboard/:path*', '/api/((?!health|debug-env).*)', '/auth/:path*'],
 };
