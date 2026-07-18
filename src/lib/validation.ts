@@ -9,6 +9,8 @@ export const MedicationSchema = z.object({
 });
 
 export const ExtractedDataSchema = z.object({
+  is_valid_medical_document: z.boolean().optional(),
+  invalid_reason: z.string().optional(),
   document_type: z.enum(['prescription', 'diagnostic_report', 'discharge_summary', 'other']),
   doctor_name: z.string().optional(),
   date: z.coerce.date().optional(),

@@ -20,13 +20,93 @@ interface ExtractResponse {
   error?: string;
 }
 
+function calculateBigramSpamScore(alpha: string): number {
+  const commonBigrams = new Set([
+    "th", "he", "in", "er", "an", "re", "on", "en", "at", "es",
+    "ed", "nd", "to", "or", "ea", "ti", "ar", "te", "ng", "al",
+    "it", "as", "is", "ha", "et", "se", "ou", "of", "le", "sa",
+    "ve", "ro", "hi", "ri", "ic", "ne", "st", "li", "de", "ra",
+    "ld", "ur", "ce", "co", "no", "me", "io", "ly", "si", "gh",
+    "ow", "nt", "tr", "pr", "ll", "ss", "sh", "ge", "ni", "la",
+    "un", "wh", "pa", "ma", "ca", "pe", "di", "ho", "ta", "wi",
+    "be", "fo", "ac", "wa", "ct", "mi", "ag", "el", "om", "us",
+    "il", "do", "we", "ns", "pl", "fe", "lo", "so", "ru", "pu",
+    "pi", "ab", "po", "ch", "bi", "su", "na", "fi", "ad", "mo",
+    "sp", "qu", "ev", "bo", "sc", "gr", "bu", "cl", "if", "go",
+    "tu", "am", "by", "op", "fa", "im", "wr", "wo", "ys"
+  ]);
+  
+  if (alpha.length < 4) return 0;
+  let unknown = 0;
+  const total = alpha.length - 1;
+  for (let i = 0; i < total; i++) {
+    const bg = alpha.slice(i, i + 2);
+    if (!commonBigrams.has(bg)) {
+      unknown++;
+    }
+  }
+  return unknown / total;
+}
+
+function isStructuralGarbage(text: string): { isGarbage: boolean; reason?: string } {
+  const norm = text.toLowerCase().replace(/\s+/g, ' ').trim();
+  const alpha = norm.replace(/[^a-z]/g, '');
+  const words = norm.split(' ');
+
+  // 1. Length constraint
+  if (text.length < 8 || words.length < 2) {
+    return { isGarbage: true, reason: "Input is too short to express a meaningful document." };
+  }
+
+  if (alpha.length > 0) {
+    // 2. Unique character distribution
+    const uniqueChars = new Set(alpha.split(''));
+    const uniqueRatio = uniqueChars.size / alpha.length;
+    if (uniqueRatio < 0.25) {
+      return { isGarbage: true, reason: "Failed character distribution check (potential spam)." };
+    }
+
+    // 3. Monotonous single character repetition
+    const freq: { [key: string]: number } = {};
+    for (const char of alpha) {
+      freq[char] = (freq[char] || 0) + 1;
+    }
+    const maxFreq = Math.max(...Object.values(freq));
+    if (maxFreq / alpha.length > 0.40) {
+      return { isGarbage: true, reason: "Dominant single character exceeds safety threshold." };
+    }
+  }
+
+  // 4. Runaway consecutive characters
+  const consecutiveMatch = text.toLowerCase().match(/(.)\1{4,}/g);
+  if (consecutiveMatch && consecutiveMatch.length > 0) {
+    return { isGarbage: true, reason: "Excessive consecutive repeated characters detected." };
+  }
+
+  // 5. Semantic Bigram Frequency Filter
+  if (alpha.length >= 6) {
+    const spamScore = calculateBigramSpamScore(alpha);
+    if (spamScore > 0.55) {
+      return { isGarbage: true, reason: "Unreadable text geometry (keyboard smash layout)." };
+    }
+  }
+
+  return { isGarbage: false };
+}
+
 // Structured extraction prompt for Gemini API
 function buildExtractionPrompt(rawText: string, documentTypeHint?: string): string {
   const typeHint = documentTypeHint ? `Document type hint: ${documentTypeHint}\n\n` : '';
 
-  return `You are a medical document parsing assistant. Extract structured data from the following medical document text and return a JSON object with this exact schema:
+  return `You are a medical document parsing assistant.
+First, check if the provided text is a legitimate medical/hospital document (like a doctor's prescription, diagnostic test report, lab report, hospital discharge summary, referral letter, clinical note, or medical invoice).
+If the text is NOT a medical/hospital document (for example, if it is a general project report, programming code, presentation slide, recipe, personal letter, non-medical document, or random gibberish), then mark "is_valid_medical_document" as false, and provide the reason in "invalid_reason". Otherwise, mark "is_valid_medical_document" as true.
+
+Extract structured data from the following medical document text and return a JSON object with this exact schema:
 
 {
+  "is_valid_medical_document": boolean (required),
+  "invalid_reason": string (optional, specify why it is not a medical/hospital document if is_valid_medical_document is false),
   "document_type": "prescription" | "diagnostic_report" | "discharge_summary" | "other",
   "doctor_name": string (optional),
   "date": ISO 8601 date string (optional),
@@ -59,6 +139,15 @@ export async function POST(req: NextRequest): Promise<NextResponse<ExtractRespon
     if (!raw_text || raw_text.trim().length === 0) {
       return NextResponse.json(
         { success: false, error: 'raw_text is required and cannot be empty' },
+        { status: 400 }
+      );
+    }
+
+    // Fast Structural Shield Check
+    const structuralCheck = isStructuralGarbage(raw_text);
+    if (structuralCheck.isGarbage) {
+      return NextResponse.json(
+        { success: false, error: `Wrong file: ${structuralCheck.reason}` },
         { status: 400 }
       );
     }
@@ -152,6 +241,16 @@ export async function POST(req: NextRequest): Promise<NextResponse<ExtractRespon
         {
           success: false,
           error: `Validation failed: ${validationResult.error.message}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (validationResult.data.is_valid_medical_document === false) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: validationResult.data.invalid_reason || 'Wrong file: Uploaded document is not related to hospital/medical records.'
         },
         { status: 400 }
       );
