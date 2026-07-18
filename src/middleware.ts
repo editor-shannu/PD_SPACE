@@ -78,5 +78,5 @@ export default withAuth(
  * Matcher configuration - which routes should be processed by this middleware
  */
 export const config = {
-  matcher: ['/dashboard/:path*', '/api/:path*', '/auth/:path*'],
+  matcher: ['/dashboard/:path*', '/api/((?!health|test-db-connection).*)', '/auth/:path*'],
 };
