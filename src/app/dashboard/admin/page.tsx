@@ -26,13 +26,17 @@ interface StatData {
   totalDocuments: number;
   totalAppointments: number;
 }
-
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const [stats, setStats] = useState<StatData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSeeding, setIsSeeding] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [users, setUsers] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersSearch, setUsersSearch] = useState('');
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [usersError, setUsersError] = useState('');
 
   const fetchStats = async (seed = false) => {
     try {
@@ -60,9 +64,58 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchUsers = async (search = '') => {
+    try {
+      setUsersLoading(true);
+      setUsersError('');
+      const res = await fetch(`/api/admin/users?search=${encodeURIComponent(search)}`);
+      if (!res.ok) {
+        throw new Error('Failed to fetch user list');
+      }
+      const data = await res.json();
+      if (data.success) {
+        setUsers(data.users || []);
+      } else {
+        throw new Error(data.error || 'Failed to fetch user list');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setUsersError(err.message || 'An error occurred fetching users.');
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const handleToggleUserRole = async (userId: string, currentRole: string) => {
+    try {
+      setUpdatingUserId(userId);
+      setUsersError('');
+      const targetRole = currentRole === 'doctor' ? 'patient' : 'doctor';
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, role: targetRole }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, role: targetRole } : u))
+        );
+      } else {
+        throw new Error(data.error || 'Failed to update user role');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setUsersError(err.message || 'An error occurred updating user role.');
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
   useEffect(() => {
     if (status === 'authenticated') {
       fetchStats();
+      fetchUsers();
     }
   }, [status]);
 
@@ -386,7 +439,125 @@ export default function AdminDashboard() {
               <span className="text-[#003893]">{(100 - finalStats.patientComplianceScore).toFixed(1)}%</span>
             </div>
           </div>
+      </div>
+    </div>
+
+      {/* User Permissions Management Card */}
+      <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-bold text-[#003893] uppercase tracking-widest flex items-center gap-1.5">
+              <span>🔑</span> User Access &amp; Doctor Permissions
+            </h3>
+            <p className="text-[10px] text-gray-400 font-semibold mt-0.5">
+              Grant or revoke doctor portal permissions for Heallink medical providers.
+            </p>
+          </div>
+
+          {/* Search Input */}
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Search user by name or email..."
+              value={usersSearch}
+              onChange={(e) => {
+                setUsersSearch(e.target.value);
+                fetchUsers(e.target.value);
+              }}
+              className="w-full pl-9 pr-4 py-2 text-xs font-semibold bg-white/85 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#2ab8d8] text-gray-700 shadow-sm"
+            />
+            <span className="absolute left-3 top-2.5 text-gray-400 text-xs">🔍</span>
+          </div>
         </div>
+
+        {usersError && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-3 flex items-center gap-2 text-xs text-red-700 font-semibold">
+            <span>⚠️</span>
+            <span>{usersError}</span>
+          </div>
+        )}
+
+        {usersLoading && users.length === 0 ? (
+          <div className="py-8 text-center space-y-2">
+            <div className="h-6 w-6 border-2 border-[#2ab8d8]/30 border-t-[#2ab8d8] rounded-full animate-spin mx-auto" />
+            <p className="text-[10px] text-gray-400 font-semibold">Loading user records...</p>
+          </div>
+        ) : users.length === 0 ? (
+          <div className="py-8 text-center bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+            <p className="text-xs font-bold text-gray-400">No users found matching query</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-gray-150 bg-white/70 shadow-inner">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-gray-150 bg-gray-150/60 text-[#003893] font-bold">
+                  <th className="p-3">User Details</th>
+                  <th className="p-3">Email Address</th>
+                  <th className="p-3">Current Role</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-150/40 font-semibold text-gray-600">
+                {users.map((user) => {
+                  const isPrimaryAdmin = user.email.toLowerCase().trim() === 'heallink.care@gmail.com';
+                  const hasDoctorAccess = user.role === 'doctor' || user.role === 'admin';
+
+                  return (
+                    <tr key={user.id} className="hover:bg-white/40 transition">
+                      <td className="p-3 flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-sky-50 text-[#003893] font-black flex items-center justify-center text-xs border border-sky-100 shadow-sm">
+                          {user.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-extrabold text-gray-800 leading-tight">{user.name}</p>
+                          {isPrimaryAdmin && (
+                            <span className="text-[9px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold uppercase mt-0.5 inline-block">
+                              Primary Admin
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3 font-semibold text-gray-500">{user.email}</td>
+                      <td className="p-3">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                            user.role === 'admin'
+                              ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                              : user.role === 'doctor'
+                              ? 'bg-sky-100 text-sky-800 border border-sky-200'
+                              : 'bg-gray-100 text-gray-700 border border-gray-200'
+                          }`}
+                        >
+                          {user.role}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right">
+                        {isPrimaryAdmin ? (
+                          <span className="text-[10px] text-gray-400 font-semibold italic">System Protected</span>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleUserRole(user.id, user.role)}
+                            disabled={updatingUserId === user.id}
+                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all shadow-sm ${
+                              hasDoctorAccess
+                                ? 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-200'
+                                : 'bg-[#2ab8d8]/10 hover:bg-[#2ab8d8]/20 text-[#2ab8d8] border border-[#2ab8d8]/30'
+                            } disabled:opacity-50`}
+                          >
+                            {updatingUserId === user.id ? (
+                              <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin inline-block mr-1 align-middle" />
+                            ) : null}
+                            {hasDoctorAccess ? 'Revoke Doctor Access' : 'Grant Doctor Access'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

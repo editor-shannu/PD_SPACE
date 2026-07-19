@@ -35,14 +35,8 @@ export const authOptions: NextAuthOptions = {
         const email = credentials.email.trim().toLowerCase();
         const name  = credentials.name  || email.split('@')[0];
         const image = credentials.image || null;
-        let requestedRole = credentials.role as 'patient' | 'doctor' | 'admin' | undefined;
-
-        if (!requestedRole && (email.includes('doctor') || email.includes('dr.') || name.toLowerCase().includes('dr.'))) {
-          requestedRole = 'doctor';
-        }
-
-        const isAdminEmail = email === 'medisettyyshanmukha@gmail.com' || email.includes('admin');
-        const targetRole = isAdminEmail ? 'admin' : (requestedRole || 'patient');
+        const isAdminEmail = email === 'heallink.care@gmail.com';
+        const targetRole = isAdminEmail ? 'admin' : 'patient';
 
         try {
           await connectDB();
@@ -62,12 +56,12 @@ export const authOptions: NextAuthOptions = {
               user.name = name;
               updated = true;
             }
-            if (requestedRole && user.role !== requestedRole) {
-              user.role = requestedRole;
-              updated = true;
-            }
             if (isAdminEmail && user.role !== 'admin') {
               user.role = 'admin';
+              updated = true;
+            }
+            if (!isAdminEmail && user.role === 'admin') {
+              user.role = 'patient';
               updated = true;
             }
             if (updated) {

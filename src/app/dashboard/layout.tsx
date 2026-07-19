@@ -107,32 +107,50 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Desktop Nav */}
             <nav className="hidden md:flex items-center gap-1">
               {!isDoctorRoute ? (
-                navItems.map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
+                <>
+                  {navItems.map((item) => {
+                    const isActive = pathname === item.href;
+                    return (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                          isActive
+                            ? 'bg-[#2ab8d8]/15 text-[#2ab8d8]'
+                            : 'text-gray-500 hover:text-[#003893] hover:bg-gray-100/60'
+                        }`}
+                      >
+                        {item.icon}
+                        {item.name}
+                      </Link>
+                    );
+                  })}
+                  {session?.user && ((session.user as any).role === 'doctor' || (session.user as any).role === 'admin') && (
                     <Link
-                      key={item.name}
-                      href={item.href}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                        isActive
-                          ? 'bg-[#2ab8d8]/15 text-[#2ab8d8]'
-                          : 'text-gray-500 hover:text-[#003893] hover:bg-gray-100/60'
-                      }`}
+                      href="/dashboard/doctor"
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-[#2ab8d8] hover:bg-[#2ab8d8]/10 font-bold transition-all"
                     >
-                      {item.icon}
-                      {item.name}
+                      🩺 Doctor Console
                     </Link>
-                  );
-                })
+                  )}
+                </>
               ) : (
-                <Link
-                  href="/dashboard/doctor"
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#2ab8d8]/15 text-[#2ab8d8]"
-                >
-                  🩺 Doctor Console
-                </Link>
+                <>
+                  <Link
+                    href="/dashboard/doctor"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#2ab8d8]/15 text-[#2ab8d8]"
+                  >
+                    🩺 Doctor Console
+                  </Link>
+                  <Link
+                    href="/dashboard/patient"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 hover:text-[#003893] hover:bg-gray-100/60 transition-all"
+                  >
+                    👤 Patient Dashboard
+                  </Link>
+                </>
               )}
-              {session?.user && ((session.user as any).role === 'admin' || (session.user as any).email === 'medisettyyshanmukha@gmail.com') && (
+              {session?.user && ((session.user as any).role === 'admin' || (session.user as any).email === 'heallink.care@gmail.com') && (
                 <Link
                   href="/dashboard/admin"
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
@@ -205,7 +223,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </Link>
               );
             })}
-            {session?.user && ((session.user as any).role === 'admin' || (session.user as any).email === 'medisettyyshanmukha@gmail.com') && (
+            {session?.user && ((session.user as any).role === 'doctor' || (session.user as any).role === 'admin') && (
+              <Link
+                href="/dashboard/doctor"
+                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 ${
+                  pathname === '/dashboard/doctor' ? 'text-[#2ab8d8] font-bold' : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <span className="text-base">🩺</span>
+                <span className="text-[9px] font-bold uppercase tracking-wider">Doctor</span>
+              </Link>
+            )}
+            {session?.user && ((session.user as any).role === 'admin' || (session.user as any).email === 'heallink.care@gmail.com') && (
               <Link
                 href="/dashboard/admin"
                 className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 ${

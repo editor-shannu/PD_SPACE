@@ -129,25 +129,6 @@ export default function DoctorDashboardPage() {
     fetchPatientSummary(patientId);
   };
 
-  // Role upgrade helper
-  const handleEnableDoctorRole = async () => {
-    setIsUpdatingRole(true);
-    try {
-      const res = await fetch('/api/doctor/role', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'doctor' }),
-      });
-      if (res.ok) {
-        window.location.reload();
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsUpdatingRole(false);
-    }
-  };
-
   if (status === 'loading') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-3 bg-white/60 backdrop-blur-xl border border-white rounded-3xl p-10 max-w-5xl mx-auto my-8 shadow-sm">
@@ -166,17 +147,13 @@ export default function DoctorDashboardPage() {
         </div>
         <h2 className="text-xl font-extrabold text-[#003893]">Doctor Access Restricted</h2>
         <p className="text-xs text-gray-500 font-medium leading-relaxed">
-          Your account is currently registered as a <b>Patient</b> account. The doctor pre-consultation summary dashboard is accessible only to verified medical providers.
+          Your account is currently registered as a <b>Patient</b> account. The doctor pre-consultation summary dashboard is accessible only to authorized medical providers.
+        </p>
+        <p className="text-xs text-gray-400 font-bold leading-relaxed bg-gray-50 p-3 rounded-2xl border border-gray-100">
+          Please contact the primary system administrator at <span className="text-[#003893] font-extrabold">heallink.care@gmail.com</span> to request doctor portal credentials.
         </p>
 
-        <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            onClick={handleEnableDoctorRole}
-            disabled={isUpdatingRole}
-            className="px-5 py-2.5 bg-[#003893] hover:bg-[#0c4091] text-white text-xs font-bold rounded-2xl shadow transition"
-          >
-            {isUpdatingRole ? 'Updating Role...' : '🩺 Enable Doctor Access for My Account'}
-          </button>
+        <div className="pt-2 flex justify-center">
           <button
             onClick={() => router.push('/dashboard/patient')}
             className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-2xl transition"
