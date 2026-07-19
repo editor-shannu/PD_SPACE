@@ -78,99 +78,39 @@ export async function GET(req: NextRequest) {
     // 2. Fallback to OpenStreetMap Overpass API if no results
     if (facilities.length === 0) {
       try {
-        const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json][timeout:10];(node["amenity"="hospital"](around:5000,${lat},${lng});node["amenity"="clinic"](around:5000,${lat},${lng});node["amenity"="pharmacy"](around:5000,${lat},${lng}););out%20body;`;
+        const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json][timeout:15];(node["amenity"="hospital"](around:5000,${lat},${lng});way["amenity"="hospital"](around:5000,${lat},${lng});node["amenity"="clinic"](around:5000,${lat},${lng});way["amenity"="clinic"](around:5000,${lat},${lng});node["amenity"="pharmacy"](around:5000,${lat},${lng});way["amenity"="pharmacy"](around:5000,${lat},${lng}););out center;`;
         const response = await fetch(overpassUrl);
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data.elements)) {
-            facilities = data.elements.map((element: any) => {
-              const tags = element.tags || {};
-              let type: Facility['type'] = 'hospital';
-              if (tags.amenity === 'pharmacy') type = 'pharmacy';
-              else if (tags.amenity === 'clinic') type = 'clinic';
+            facilities = data.elements
+              .map((element: any) => {
+                const tags = element.tags || {};
+                let type: Facility['type'] = 'hospital';
+                if (tags.amenity === 'pharmacy') type = 'pharmacy';
+                else if (tags.amenity === 'clinic') type = 'clinic';
 
-              return {
-                id: `osm-${element.id}`,
-                name: tags.name || tags.operator || `${type.charAt(0).toUpperCase() + type.slice(1)} Near Me`,
-                lat: element.lat,
-                lng: element.lon,
-                address: tags['addr:full'] || tags['addr:street'] || 'Nearby Area',
-                type,
-                distance: getDistance(lat, lng, element.lat, element.lon),
-              };
-            });
+                const elLat = element.lat !== undefined ? element.lat : element.center?.lat;
+                const elLng = element.lon !== undefined ? element.lon : element.center?.lon;
+
+                if (elLat === undefined || elLng === undefined) return null;
+
+                return {
+                  id: `osm-${element.id}`,
+                  name: tags.name || tags.operator || `${type.charAt(0).toUpperCase() + type.slice(1)} Near Me`,
+                  lat: elLat,
+                  lng: elLng,
+                  address: tags['addr:full'] || tags['addr:street'] || tags['addr:suburb'] || tags['addr:city'] || 'Nearby Area',
+                  type,
+                  distance: getDistance(lat, lng, elLat, elLng),
+                };
+              })
+              .filter((f: Facility | null): f is Facility => f !== null);
           }
         }
       } catch (err) {
-        console.warn('OSM Overpass API call failed, falling back:', err);
+        console.warn('OSM Overpass API call failed:', err);
       }
-    }
-
-    // 3. Fallback to mock simulated premier facilities if both failed
-    if (facilities.length === 0) {
-      const mockFacilities = [
-        {
-          name: 'MediFlow Premier Care Hospital',
-          offsetLat: 0.008,
-          offsetLng: 0.012,
-          address: '45 Health Science Blvd, Medical District',
-          type: 'hospital' as const,
-          rating: 4.8,
-          phone: '+1 (555) 019-2834',
-        },
-        {
-          name: 'Apex Diagnostic & Wellness Labs',
-          offsetLat: -0.011,
-          offsetLng: 0.006,
-          address: '120 Science Park Rd, Diagnostics Wing',
-          type: 'diagnostic' as const,
-          rating: 4.6,
-          phone: '+1 (555) 019-5821',
-        },
-        {
-          name: 'St. Mary Community Clinic',
-          offsetLat: 0.004,
-          offsetLng: -0.015,
-          address: '89 West Cedar St, General Practice',
-          type: 'clinic' as const,
-          rating: 4.4,
-          phone: '+1 (555) 019-3991',
-        },
-        {
-          name: 'MediFlow Express Pharmacy',
-          offsetLat: -0.003,
-          offsetLng: -0.008,
-          address: '12 Plaza Drive, Pharmacy Counter',
-          type: 'pharmacy' as const,
-          rating: 4.9,
-          phone: '+1 (555) 019-1022',
-        },
-        {
-          name: 'Vibrant Life Diagnostic Center',
-          offsetLat: 0.015,
-          offsetLng: -0.002,
-          address: '344 Meridian Ave, Advanced Imaging',
-          type: 'diagnostic' as const,
-          rating: 4.7,
-          phone: '+1 (555) 019-7440',
-        },
-      ];
-
-      facilities = mockFacilities.map((f, idx) => {
-        const facLat = lat + f.offsetLat;
-        const facLng = lng + f.offsetLng;
-        return {
-          id: `simulated-${idx}`,
-          name: f.name,
-          lat: facLat,
-          lng: facLng,
-          address: f.address,
-          type: f.type,
-          rating: f.rating,
-          phone: f.phone,
-          distance: getDistance(lat, lng, facLat, facLng),
-        };
-      });
     }
 
     // Sort facilities by distance ascending

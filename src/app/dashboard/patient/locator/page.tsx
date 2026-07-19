@@ -41,7 +41,7 @@ export default function FacilityLocatorPage() {
   const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
   const [activeFilter, setActiveFilter] = useState<FacilityFilter>('all');
   const [isLoading, setIsLoading] = useState(true);
-  const [locationStatus, setLocationStatus] = useState<'prompt' | 'granted' | 'denied' | 'simulated'>('prompt');
+  const [locationStatus, setLocationStatus] = useState<'prompt' | 'granted' | 'denied'>('prompt');
   
   // Mobile UI toggle: list vs map
   const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
@@ -82,7 +82,6 @@ export default function FacilityLocatorPage() {
         (error) => {
           console.warn('Geolocation permission denied or error:', error);
           setLocationStatus('denied');
-          // Fall back to default location
           fetchFacilities(lat, lng);
         },
         { enableHighAccuracy: true, timeout: 5000 }
@@ -92,21 +91,6 @@ export default function FacilityLocatorPage() {
       fetchFacilities(lat, lng);
     }
   }, []);
-
-  const handleSimulateLocation = (city: 'bengaluru' | 'delhi' | 'mumbai' | 'sf') => {
-    const coords = {
-      bengaluru: { lat: 12.9716, lng: 77.5946 },
-      delhi: { lat: 28.6139, lng: 77.2090 },
-      mumbai: { lat: 19.0760, lng: 72.8777 },
-      sf: { lat: 37.7749, lng: -122.4194 },
-    };
-
-    const target = coords[city];
-    setLat(target.lat);
-    setLng(target.lng);
-    setLocationStatus('simulated');
-    fetchFacilities(target.lat, target.lng);
-  };
 
   const filteredFacilities = facilities.filter((fac) => {
     if (activeFilter === 'all') return true;
@@ -138,35 +122,6 @@ export default function FacilityLocatorPage() {
             <p className="text-xs text-gray-400 font-semibold">Locate nearby medical centers, diagnostics & pharmacies</p>
           </div>
         </div>
-
-        {/* Location Status & Presets */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Simulate Location:</span>
-          <button
-            onClick={() => handleSimulateLocation('bengaluru')}
-            className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
-              lat === 12.9716 ? 'bg-[#2ab8d8] text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            Bengaluru
-          </button>
-          <button
-            onClick={() => handleSimulateLocation('delhi')}
-            className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
-              lat === 28.6139 ? 'bg-[#2ab8d8] text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            Delhi
-          </button>
-          <button
-            onClick={() => handleSimulateLocation('sf')}
-            className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
-              lat === 37.7749 ? 'bg-[#2ab8d8] text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            San Francisco
-          </button>
-        </div>
       </div>
 
       {/* Geolocation Notice Banner */}
@@ -174,9 +129,9 @@ export default function FacilityLocatorPage() {
         <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 flex items-start gap-3">
           <span className="text-lg">📍</span>
           <div>
-            <h4 className="text-xs font-bold text-amber-800">Location permission denied</h4>
+            <h4 className="text-xs font-bold text-amber-800">Location permission required</h4>
             <p className="text-[11px] text-amber-600 font-semibold mt-0.5">
-              We are showing fallback facilities in Bengaluru. You can click simulated location buttons above to check other cities.
+              Please enable location access in your browser settings to search for real clinics, hospitals, and pharmacies near your location.
             </p>
           </div>
         </div>
