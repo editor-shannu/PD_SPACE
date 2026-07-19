@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { DocumentList } from '@/components/DocumentList';
 import type { Document } from '@/types/documents';
+import { DocumentDetailModal } from '@/components/DocumentDetailModal';
 
 type DocTypeFilter = 'all' | 'prescription' | 'diagnostic_report' | 'discharge_summary' | 'other';
 
@@ -14,6 +15,7 @@ export default function MyDocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<DocTypeFilter>('all');
+  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
 
   useEffect(() => {
     const fetchDocuments = async () => {
@@ -105,9 +107,20 @@ export default function MyDocumentsPage() {
             </p>
           </div>
         ) : (
-          <DocumentList documents={filteredDocuments} isLoading={isLoading} />
+          <DocumentList
+            documents={filteredDocuments}
+            isLoading={isLoading}
+            onViewDetails={(doc) => setSelectedDoc(doc)}
+          />
         )}
       </div>
+
+      {selectedDoc && (
+        <DocumentDetailModal
+          document={selectedDoc}
+          onClose={() => setSelectedDoc(null)}
+        />
+      )}
     </div>
   );
 }

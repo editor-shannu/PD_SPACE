@@ -36,6 +36,11 @@ const documentSchema = new Schema<IDocument>(
     rawText: { type: String, required: true },
     extractedData: { type: extractedDataSchema, required: true },
     isConfirmed: { type: Boolean, default: false },
+    explanations: {
+      type: Map,
+      of: String,
+      default: {},
+    },
   },
   { timestamps: true }
 );

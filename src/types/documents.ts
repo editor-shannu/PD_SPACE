@@ -45,6 +45,7 @@ export interface Document {
   rawText: string;
   extractedData: ExtractedData;
   isConfirmed: boolean;
+  explanations?: Record<string, string>;
   createdAt?: Date;
   updatedAt?: Date;
 }

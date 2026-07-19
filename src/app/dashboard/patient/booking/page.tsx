@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 interface Recommendation {
   recommended_department: string;
@@ -59,7 +60,7 @@ const mockDoctors: Record<string, MockDoctor[]> = {
   ],
 };
 
-export default function BookingPage() {
+function BookingFlow() {
   const [activeTab, setActiveTab] = useState<'book' | 'history'>('book');
   
   // Symptom Analysis states
@@ -81,6 +82,45 @@ export default function BookingPage() {
   // Appointment History states
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  const searchParams = useSearchParams();
+  const facilityParam = searchParams.get('facility');
+  const typeParam = searchParams.get('type');
+
+  useEffect(() => {
+    if (facilityParam) {
+      // Map facility types to appropriate departments
+      let mappedDept = 'General Medicine';
+      if (typeParam === 'hospital') {
+        mappedDept = 'General Medicine';
+      } else if (typeParam === 'clinic') {
+        mappedDept = 'General Medicine';
+      } else if (typeParam === 'pharmacy') {
+        mappedDept = 'General Medicine';
+      }
+
+      setSelectedDept(mappedDept);
+
+      // Pre-fill first doctor of the department
+      const docs = mockDoctors[mappedDept] || [];
+      if (docs.length > 0) {
+        setSelectedDoc(docs[0].name);
+        if (docs[0].slots.length > 0) {
+          setSelectedSlot(docs[0].slots[0]);
+        }
+      }
+
+      setSymptoms(`Consultation regarding visit to nearby facility: ${facilityParam}.`);
+
+      // Set booking date to tomorrow
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const yyyy = tomorrow.getFullYear();
+      const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+      const dd = String(tomorrow.getDate()).padStart(2, '0');
+      setBookingDate(`${yyyy}-${mm}-${dd}`);
+    }
+  }, [facilityParam, typeParam]);
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -551,5 +591,18 @@ export default function BookingPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function BookingPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center py-24 gap-3">
+        <div className="h-10 w-10 border-4 border-[#2ab8d8]/30 border-t-[#2ab8d8] rounded-full animate-spin" />
+        <p className="text-gray-400 text-xs font-semibold">Loading booking flow...</p>
+      </div>
+    }>
+      <BookingFlow />
+    </Suspense>
   );
 }
