@@ -122,6 +122,7 @@ const PatientUploadPage: React.FC = () => {
         patientId,
         fileName: uploadState.fileName,
         mimeType: uploadState.mimeType,
+        rawText: uploadState.rawText,
       };
 
       const response = await fetch('/api/documents/confirm', {

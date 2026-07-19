@@ -19,6 +19,7 @@ interface ConfirmRequest {
   patientId: string;
   fileName?: string;
   mimeType?: string;
+  rawText?: string;
 }
 
 interface ConfirmResponse {
@@ -31,7 +32,7 @@ interface ConfirmResponse {
 export async function POST(req: NextRequest): Promise<NextResponse<ConfirmResponse>> {
   try {
     const body = (await req.json()) as ConfirmRequest;
-    const { file_id, extracted_data, patientId, fileName, mimeType } = body;
+    const { file_id, extracted_data, patientId, fileName, mimeType, rawText } = body;
 
     // Validation
     if (!file_id) {
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ConfirmRespon
       userId: patientId,
       fileName: fileName || `document_${Date.now()}`,
       fileType,
-      rawText: '', // TODO: Retrieve raw text from OCR step
+      rawText: rawText || 'No text extracted.',
       extractedData: validationResult.data,
       isConfirmed: true,
     };
