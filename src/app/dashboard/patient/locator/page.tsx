@@ -155,6 +155,11 @@ export default function FacilityLocatorPage() {
 
     const applyCoords = (newLat: number, newLng: number) => {
       if (!active) return;
+      if (coordsRef.current) {
+        const dLat = Math.abs(coordsRef.current.lat - newLat);
+        const dLng = Math.abs(coordsRef.current.lng - newLng);
+        if (dLat < 0.0001 && dLng < 0.0001) return;
+      }
       coordsRef.current = { lat: newLat, lng: newLng };
       setLat(newLat);
       setLng(newLng);

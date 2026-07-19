@@ -72,9 +72,10 @@ function buildQuery(lat: number, lng: number, radiusM: number): string {
   return `[out:json][timeout:${t}];(
 node["amenity"~"hospital|clinic|pharmacy|doctors|dentist|health_post|health_centre|nursing_home|maternity"](around:${radiusM},${lat},${lng});
 way["amenity"~"hospital|clinic|pharmacy|doctors|dentist|health_post|health_centre|nursing_home|maternity"](around:${radiusM},${lat},${lng});
-node["healthcare"](around:${radiusM},${lat},${lng});
-way["healthcare"](around:${radiusM},${lat},${lng});
-node["amenity"="hospital"](around:${radiusM},${lat},${lng});
+relation["amenity"~"hospital|clinic|pharmacy|doctors|dentist|health_post|health_centre|nursing_home|maternity"](around:${radiusM},${lat},${lng});
+node["healthcare"~"hospital|clinic|pharmacy|doctor|dentist"](around:${radiusM},${lat},${lng});
+way["healthcare"~"hospital|clinic|pharmacy|doctor|dentist"](around:${radiusM},${lat},${lng});
+relation["healthcare"~"hospital|clinic|pharmacy|doctor|dentist"](around:${radiusM},${lat},${lng});
 );out center 60;`;
 }
 
