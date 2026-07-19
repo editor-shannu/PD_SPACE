@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 
@@ -46,8 +46,20 @@ export default function FacilityLocatorPage() {
   // Mobile UI toggle: list vs map
   const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
 
+  // Store last fetched coordinates to avoid double-fetching for tiny GPS jitter
+  const lastFetchedCoords = useRef<{ lat: number; lng: number } | null>(null);
+
   // Fetch facilities based on current lat/lng
   const fetchFacilities = async (currentLat: number, currentLng: number) => {
+    // Only fetch if coordinates changed significantly (e.g. > 50 meters or approx 0.0005 degrees)
+    if (lastFetchedCoords.current) {
+      const latDiff = Math.abs(lastFetchedCoords.current.lat - currentLat);
+      const lngDiff = Math.abs(lastFetchedCoords.current.lng - currentLng);
+      if (latDiff < 0.0005 && lngDiff < 0.0005) {
+        return; // Skip API request for minimal movement/noise
+      }
+    }
+
     setIsLoading(true);
     try {
       const res = await fetch(`/api/facilities?lat=${currentLat}&lng=${currentLng}`);
@@ -55,6 +67,7 @@ export default function FacilityLocatorPage() {
         const data = await res.json();
         if (data.success && Array.isArray(data.facilities)) {
           setFacilities(data.facilities);
+          lastFetchedCoords.current = { lat: currentLat, lng: currentLng };
           if (data.facilities.length > 0) {
             setSelectedFacility(data.facilities[0]);
           }
@@ -67,10 +80,18 @@ export default function FacilityLocatorPage() {
     }
   };
 
-  // Get user geolocation on mount
+  // Get user geolocation on mount and continuously watch position
   useEffect(() => {
-    if (typeof window !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      setLocationStatus('denied');
+      fetchFacilities(lat, lng);
+      return;
+    }
+
+    let watchId: number | null = null;
+
+    const startWatching = (highAccuracy: boolean) => {
+      watchId = navigator.geolocation.watchPosition(
         (position) => {
           const uLat = position.coords.latitude;
           const uLng = position.coords.longitude;
@@ -80,16 +101,31 @@ export default function FacilityLocatorPage() {
           fetchFacilities(uLat, uLng);
         },
         (error) => {
-          console.warn('Geolocation permission denied or error:', error);
-          setLocationStatus('denied');
-          fetchFacilities(lat, lng);
+          console.warn(`Geolocation watch error (highAccuracy=${highAccuracy}):`, error);
+          if (highAccuracy) {
+            // If high accuracy failed (common on desktops/WiFi), fallback to low accuracy
+            console.log('Retrying location tracking with low accuracy fallback...');
+            if (watchId !== null) {
+              navigator.geolocation.clearWatch(watchId);
+            }
+            startWatching(false);
+          } else {
+            setLocationStatus('denied');
+            fetchFacilities(lat, lng);
+          }
         },
-        { enableHighAccuracy: true, timeout: 5000 }
+        { enableHighAccuracy: highAccuracy, timeout: 8000, maximumAge: 10000 }
       );
-    } else {
-      setLocationStatus('denied');
-      fetchFacilities(lat, lng);
-    }
+    };
+
+    // Begin watching with high accuracy first
+    startWatching(true);
+
+    return () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
   }, []);
 
   const filteredFacilities = facilities.filter((fac) => {
