@@ -1,165 +1,104 @@
-# 🏥 Patient Document Upload System
+# 🏥 MediFlow — AI-Powered Healthcare Navigation Platform
 
-A full-stack healthcare application for uploading, extracting, and managing patient medical documents using OCR and AI.
+MediFlow is a modern, full-stack healthcare platform designed to streamline patient onboarding, automate clinical triaging, and provide actionable analytics for hospital administrators and physicians.
 
-## ✨ Features
+---
 
-- 📤 **Drag-and-drop upload** (PDF, JPG, PNG)
-- 🔍 **OCR extraction** (Tesseract.js)
-- 🤖 **AI-powered parsing** (Google Gemini API)
-- ✏️ **Editable confirmation form**
-- 💾 **Secure MongoDB storage** with GridFS
-- 🔐 **NextAuth authentication**
-- 📱 **Responsive design** (Tailwind CSS)
+## 🌟 Key Features
 
-## 🚀 Quick Start
+### 1. Patient Portal & Document Pipeline
+* **Smart Upload**: Drag-and-drop system accepting medical documents, handwritten prescriptions, and clinical reports (PDF, PNG, JPG).
+* **Zero-Shot Validation**: Powered by a FastAPI microservice to detect and filter out non-medical documents before extraction.
+* **Hybrid OCR & AI Extraction**: Tesseract OCR extracts text, and the Google Gemini reasoning engine structures it into precise clinical schemas (diagnoses, medications, dosage, follow-up dates).
+* **AI Symptom Checker**: Real-time triage analyzing current symptoms alongside historical records, advising on recommended specialty (e.g., Infectious Diseases, Cardiology) and urgency level.
 
-### 1. Install
+### 2. Specialist Booking & Prefill
+* **Context-Preserving Redirection**: Triage recommendations are passed via secure URL parameters directly into the booking engine.
+* **Auto-Prefill**: Automatically selects the recommended department and specialist (e.g., Infectious Diseases), populating patient notes with zero re-entry.
+
+### 3. Doctor Portal & Clinical Co-Pilot
+* **Patient Overview**: Clear listing of assigned patients and clinical records.
+* **Clinical Alert Engine**: Automatically checks for medication conflicts, duplicate prescriptions, and missed follow-up appointments.
+* **Gemini Case Summaries**: Instantly generates short clinical history snapshots for physicians.
+
+### 4. Admin Dashboard (Module C)
+* **Recharts Analytics**: High-fidelity dark-navy dashboard tracking:
+  * Missed follow-up rates (%)
+  * Patient compliance scores (%)
+  * Treatment timelines (average days to resolution)
+  * Department appointment bottlenecks (interactive volume bar charts)
+* **LLM Operations Review**: Sends aggregated analytics to Gemini to generate concise operational recommendations and clinical solutions.
+
+---
+
+## 🔌 Tech Stack
+
+* **Frontend**: Next.js 14 (App Router) + React 18 + TypeScript + Vanilla CSS / Tailwind CSS
+* **Backend**: Next.js Serverless Routes + FastAPI (Zero-Shot Medical Classification)
+* **Database**: MongoDB + Mongoose + GridFS for file storage
+* **AI & LLM**: Google Gemini API (`gemini-1.5-flash` / Gemini 3.5 series)
+* **Analytics**: Recharts (Custom themed dark-mode charts)
+* **Auth**: NextAuth.js (Firebase Google Sign-In & Developer-only Local Bypasses)
+
+---
+
+## 🚀 Getting Started
+
+### 1. Install Dependencies
 ```bash
 npm install
 ```
 
-### 2. Setup Environment
-Ensure that the `secrets.env` file in the project root is populated with your specific credentials. The application is configured to load these values automatically at startup.
+### 2. Configure Environment Secrets
+Create a `secrets.env` (or `.env.local`) file in the project root:
+```env
+MONGODB_URI=your_mongodb_connection_string
+GEMINI_API_KEY=your_gemini_api_key
+NEXTAUTH_SECRET=your_nextauth_session_secret
+NEXTAUTH_URL=http://localhost:3000
+NEXT_PUBLIC_FASTAPI_URL=your_fastapi_microservice_url
+```
 
-### 3. Run
+### 3. Run Development Server
 ```bash
 npm run dev
 ```
+Open **http://localhost:3000** (or http://localhost:3001 if port 3000 is occupied).
 
-Open: **http://localhost:3000**
+### 4. Developer Bypasses
+For testing in development mode, we have added dual passwordless login bypasses to simplify roles walkthroughs:
+* **Patient Dev Bypass**: Logs in as `test-patient@mediflow.care`.
+* **Admin Dev Bypass**: Logs in as the primary admin (`heallink.care@gmail.com`).
 
-## 📖 Usage
+---
 
-1. **Login**: http://localhost:3000/auth/login (any email/password)
-2. **Dashboard**: http://localhost:3000/dashboard/patient
-3. **Upload**: Click "Upload Document"
-4. **Process**: 
-   - Upload file → OCR extract → AI parsing → Confirm → Save
-5. **View**: All documents appear in dashboard
-
-## 📁 Project Structure
+## 📁 Directory Structure
 
 ```
 src/
-├── app/              → Pages & Layouts
-├── api/              → API Routes
-├── components/       → React Components
-├── lib/              → Utilities & Config
-├── models/           → Mongoose Schemas
-├── types/            → TypeScript Types
-└── utils/            → Helper Functions
+├── app/                  → Next.js pages, layouts, and API endpoints
+│   ├── api/
+│   │   ├── admin/stats   → Admin analytics calculation API
+│   │   ├── recommend     → Symptom triage & specialty checker
+│   │   └── documents/    → Upload & GridFS management
+│   └── dashboard/        → Admin, Doctor, and Patient views
+├── components/           → Shared UI widgets and alerts
+├── lib/                  → Auth options, DB connectors, alert engines
+├── models/               → Mongoose schemas (User, Document, Appointment)
+└── utils/                → Helper functions (OCR, local parsers)
 ```
 
-## 🔌 Tech Stack
+---
 
-- **Frontend**: Next.js 14 + React 18 + TypeScript + Tailwind CSS
-- **Backend**: Node.js + Next.js API Routes
-- **Database**: MongoDB + Mongoose + GridFS
-- **OCR**: Tesseract.js
-- **LLM**: Google Gemini API
-- **Auth**: NextAuth.js
-
-## 📊 Data Flow
-
-```
-Upload File
-    ↓
-OCR Extraction (Tesseract.js)
-    ↓
-AI Parsing (Gemini API)
-    ↓
-Editable Confirmation
-    ↓
-Save to MongoDB
-```
-
-## 🔐 Security
-
-- ✅ Environment variables for all secrets
-- ✅ `secrets.env` in `.gitignore`
-- ✅ NextAuth session management
-- ✅ Protected routes (require auth)
-- ✅ Zod validation on all inputs
-
-## 📋 API Endpoints
-
-- `POST /api/documents/upload` → Upload file
-- `POST /api/ocr` → Extract text
-- `POST /api/extract` → Parse with Gemini
-- `POST /api/documents/confirm` → Save to DB
-- `GET /api/documents` → Get patient docs
-
-See `REPORT.md` for complete API documentation.
-
-## 🛠️ Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `MONGODB_URI` | ✅ | MongoDB connection string |
-| `GEMINI_API_KEY` | ✅ | Google Gemini API key |
-| `NEXTAUTH_SECRET` | ✅ | Session secret |
-| `NEXTAUTH_URL` | ✅ | Auth callback URL |
-| `NEXT_PUBLIC_API_URL` | ✅ | API base URL |
-
-## 🐛 Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| "MONGODB_URI not set" | Create `secrets.env` in project root |
-| "Cannot connect to MongoDB" | Verify connection string, IP whitelist in MongoDB Atlas |
-| "NextAuth error" | Ensure NEXTAUTH_SECRET and NEXTAUTH_URL are set |
-| "Port 3000 in use" | `PORT=3001 npm run dev` |
-
-## 📖 Documentation
-
-- **`REPORT.md`** - Complete technical documentation
-- **API Endpoints** - See REPORT.md § API Endpoints
-- **Database Schema** - See REPORT.md § Database Schema
-- **Deployment** - See REPORT.md § Deployment Guide
-
-## 🚀 Deployment
-
-See `REPORT.md` § Deployment Guide for:
-- Vercel deployment
-- Docker containerization
-- Production environment setup
-
-## 📝 Development
+## 📝 CLI & Quality Assurance
 
 ```bash
 # Type checking
 npm run type-check
 
-# Linting
+# Lint checks
 npm run lint
 
-# Build for production
+# Production compilation
 npm run build
-
-# Start production server
-npm start
 ```
-
-## ✅ Production Checklist
-
-- [ ] All secrets in `secrets.env`
-- [ ] MongoDB production cluster
-- [ ] Gemini API configured
-- [ ] NextAuth properly secured
-- [ ] File size limits enforced
-- [ ] Error logging enabled
-- [ ] HTTPS/SSL configured
-- [ ] User authentication improved
-
-## 📞 Help
-
-1. Check error message in browser console
-2. Verify `secrets.env` is set correctly
-3. Check MongoDB Atlas & Google Cloud Console
-4. Review `REPORT.md` for detailed troubleshooting
-
----
-
-**Status**: ✅ Ready for Development  
-**Version**: 1.0.0
