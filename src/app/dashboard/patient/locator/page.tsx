@@ -155,6 +155,7 @@ export default function FacilityLocatorPage() {
 
     const applyCoords = (newLat: number, newLng: number) => {
       if (!active) return;
+      if (typeof newLat !== 'number' || typeof newLng !== 'number' || isNaN(newLat) || isNaN(newLng)) return;
       if (coordsRef.current) {
         const dLat = Math.abs(coordsRef.current.lat - newLat);
         const dLng = Math.abs(coordsRef.current.lng - newLng);
@@ -172,7 +173,7 @@ export default function FacilityLocatorPage() {
         const r1 = await fetch('https://ipapi.co/json/');
         if (r1.ok) {
           const d = await r1.json();
-          if (typeof d.latitude === 'number' && typeof d.longitude === 'number') {
+          if (typeof d.latitude === 'number' && typeof d.longitude === 'number' && !isNaN(d.latitude) && !isNaN(d.longitude)) {
             setLocationStatus('denied');
             applyCoords(d.latitude, d.longitude);
             return;
@@ -184,7 +185,7 @@ export default function FacilityLocatorPage() {
         const r2 = await fetch('https://freeipapi.com/api/json');
         if (r2.ok) {
           const d = await r2.json();
-          if (typeof d.latitude === 'number' && typeof d.longitude === 'number') {
+          if (typeof d.latitude === 'number' && typeof d.longitude === 'number' && !isNaN(d.latitude) && !isNaN(d.longitude)) {
             setLocationStatus('denied');
             applyCoords(d.latitude, d.longitude);
             return;
@@ -199,42 +200,67 @@ export default function FacilityLocatorPage() {
 
     const onSuccess = (pos: GeolocationPosition) => {
       if (!active) return;
-      setLocationStatus('granted');
-      applyCoords(pos.coords.latitude, pos.coords.longitude);
+      try {
+        setLocationStatus('granted');
+        applyCoords(pos.coords.latitude, pos.coords.longitude);
 
-      // Keep watching for movement
-      if (watchId === null) {
-        watchId = navigator.geolocation.watchPosition(
-          (p) => active && applyCoords(p.coords.latitude, p.coords.longitude),
-          (e) => console.warn('watchPosition error:', e.message),
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-        );
+        // Keep watching for movement
+        if (watchId === null && typeof navigator !== 'undefined' && navigator.geolocation) {
+          try {
+            watchId = navigator.geolocation.watchPosition(
+              (p) => active && applyCoords(p.coords.latitude, p.coords.longitude),
+              (e) => console.warn('watchPosition error:', e.message),
+              { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+            );
+          } catch (e) {
+            console.warn('watchPosition failed:', e);
+          }
+        }
+      } catch (e) {
+        console.warn('onSuccess geolocation exception:', e);
+        tryIPFallback();
       }
     };
 
     const onError = () => {
       if (!active) return;
-      // Try low accuracy first
-      navigator.geolocation.getCurrentPosition(
-        onSuccess,
-        () => tryIPFallback(),
-        { enableHighAccuracy: false, timeout: 8000 }
-      );
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        try {
+          navigator.geolocation.getCurrentPosition(
+            onSuccess,
+            () => tryIPFallback(),
+            { enableHighAccuracy: false, timeout: 8000 }
+          );
+        } catch (e) {
+          tryIPFallback();
+        }
+      } else {
+        tryIPFallback();
+      }
     };
 
-    if (typeof window === 'undefined' || !navigator?.geolocation) {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined' || !navigator.geolocation) {
       tryIPFallback();
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(onSuccess, onError, {
-      enableHighAccuracy: true,
-      timeout: 5000,
-    });
+    try {
+      navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+        enableHighAccuracy: true,
+        timeout: 5000,
+      });
+    } catch (e) {
+      console.warn('getCurrentPosition exception:', e);
+      tryIPFallback();
+    }
 
     return () => {
       active = false;
-      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (watchId !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
+        try {
+          navigator.geolocation.clearWatch(watchId);
+        } catch (_) {}
+      }
     };
   }, [fetchFacilities]);
 
