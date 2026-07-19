@@ -41,6 +41,9 @@ export const authOptions: NextAuthOptions = {
           requestedRole = 'doctor';
         }
 
+        const isAdminEmail = email === 'medisettyyshanmukha@gmail.com' || email.includes('admin');
+        const targetRole = isAdminEmail ? 'admin' : (requestedRole || 'patient');
+
         try {
           await connectDB();
 
@@ -50,7 +53,7 @@ export const authOptions: NextAuthOptions = {
             user = new UserModel({
               email,
               name,
-              role: requestedRole || 'patient',
+              role: targetRole,
             });
             await user.save();
           } else {
@@ -61,6 +64,10 @@ export const authOptions: NextAuthOptions = {
             }
             if (requestedRole && user.role !== requestedRole) {
               user.role = requestedRole;
+              updated = true;
+            }
+            if (isAdminEmail && user.role !== 'admin') {
+              user.role = 'admin';
               updated = true;
             }
             if (updated) {

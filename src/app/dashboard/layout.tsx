@@ -132,6 +132,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   🩺 Doctor Console
                 </Link>
               )}
+              {session?.user && ((session.user as any).role === 'admin' || (session.user as any).email === 'medisettyyshanmukha@gmail.com') && (
+                <Link
+                  href="/dashboard/admin"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                    pathname === '/dashboard/admin'
+                      ? 'bg-[#003893]/15 text-[#003893]'
+                      : 'text-[#003893] hover:bg-[#003893]/10 font-bold'
+                  }`}
+                >
+                  🛡️ Admin Panel
+                </Link>
+              )}
             </nav>
 
             {/* User + Logout */}
@@ -193,6 +205,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </Link>
               );
             })}
+            {session?.user && ((session.user as any).role === 'admin' || (session.user as any).email === 'medisettyyshanmukha@gmail.com') && (
+              <Link
+                href="/dashboard/admin"
+                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 ${
+                  pathname === '/dashboard/admin' ? 'text-[#003893] font-bold' : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <span className="text-base">🛡️</span>
+                <span className="text-[9px] font-bold uppercase tracking-wider">Admin</span>
+              </Link>
+            )}
             {/* Sign Out */}
             <button
               onClick={handleLogout}
