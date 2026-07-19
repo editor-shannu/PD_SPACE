@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
     // 1. Fetch Patient profile
-    const patientUser = await UserModel.findById(patientId).select('name email role').lean().catch(() => null);
+    const patientUser: any = await UserModel.findById(patientId).select('name email role').lean().catch(() => null);
 
     // 2. Fetch full medical history timeline
     const timeline = await DocumentModel.find({ userId: patientId })

@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     const processedIds = new Set<string>();
 
     for (const u of users) {
-      const idStr = u._id.toString();
+      const idStr = (u as any)._id.toString();
       processedIds.add(idStr);
 
       const docCount = await DocumentModel.countDocuments({ userId: idStr });
