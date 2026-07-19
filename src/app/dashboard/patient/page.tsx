@@ -13,15 +13,26 @@ import type { Document } from '@/types/documents';
 export default function PatientDashboard() {
   const { data: session } = useSession();
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/documents');
-        if (!res.ok) return;
-        const data = await res.json();
-        setDocuments(data.documents || []);
+        const [docsRes, appsRes] = await Promise.all([
+          fetch('/api/documents'),
+          fetch('/api/appointments'),
+        ]);
+
+        if (docsRes.ok) {
+          const docsData = await docsRes.json();
+          setDocuments(docsData.documents || []);
+        }
+
+        if (appsRes.ok) {
+          const appsData = await appsRes.json();
+          setAppointments(appsData.appointments || []);
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -225,6 +236,49 @@ export default function PatientDashboard() {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Upcoming Appointments ────────────────────────── */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-bold text-[#003893]">Upcoming Appointments</h2>
+          <Link href="/dashboard/patient/booking" className="text-xs font-semibold text-[#2ab8d8] hover:underline">
+            Manage Bookings →
+          </Link>
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-3">
+            <div className="bg-white/60 rounded-2xl h-16 animate-pulse border border-white/80" />
+          </div>
+        ) : appointments.length === 0 ? (
+          <div className="bg-white/60 backdrop-blur-xl border border-dashed border-gray-200 rounded-3xl p-6 text-center shadow-sm">
+            <p className="text-gray-400 text-xs font-medium">No appointments scheduled.</p>
+            <Link href="/dashboard/patient/booking" className="text-xs font-bold text-[#2ab8d8] hover:underline mt-1 inline-block">
+              Book a specialist appointment
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {appointments.slice(0, 3).map((app) => (
+              <div key={app._id || app.id} className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl p-4 flex items-center justify-between hover:bg-white/80 hover:shadow-sm transition-all duration-200 shadow-sm">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center flex-shrink-0 text-sky-600">
+                    🩺
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[#003893] text-sm font-semibold truncate">{app.doctorName}</p>
+                    <p className="text-gray-400 text-xs mt-0.5 truncate">{app.department} Department</p>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-xs font-bold text-[#003893]">{app.date}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">{app.time}</p>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

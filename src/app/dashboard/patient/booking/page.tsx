@@ -120,13 +120,37 @@ export default function BookingPage() {
 
       const data = await res.json();
       if (data.success && data.recommendation) {
-        setRecommendation(data.recommendation);
-        // Pre-fill department and urgency from recommendation
-        setSelectedDept(data.recommendation.recommended_department);
-        setUrgency(data.recommendation.urgency_level);
-        // Reset doctor and slot
-        setSelectedDoc('');
-        setSelectedSlot('');
+        const rec = data.recommendation as Recommendation;
+        setRecommendation(rec);
+        
+        // Find match or fallback
+        const matchedDept = departments.find(
+          (d) => d.toLowerCase() === rec.recommended_department.toLowerCase()
+        ) || 'General Medicine';
+
+        setSelectedDept(matchedDept);
+        setUrgency(rec.urgency_level || 'routine');
+
+        // Pre-fill doctor
+        const doctors = mockDoctors[matchedDept] || [];
+        if (doctors.length > 0) {
+          const doc = doctors[0];
+          setSelectedDoc(doc.name);
+          if (doc.slots.length > 0) {
+            setSelectedSlot(doc.slots[0]);
+          }
+        } else {
+          setSelectedDoc('');
+          setSelectedSlot('');
+        }
+
+        // Pre-fill date to tomorrow (YYYY-MM-DD)
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const yyyy = tomorrow.getFullYear();
+        const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+        const dd = String(tomorrow.getDate()).padStart(2, '0');
+        setBookingDate(`${yyyy}-${mm}-${dd}`);
       } else {
         setAnalysisError(data.error || 'Failed to analyze symptoms');
       }
@@ -134,6 +158,36 @@ export default function BookingPage() {
       setAnalysisError('Network error. Please try again.');
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  // Sync doctor slots when department changes manually
+  const handleDeptChange = (dept: string) => {
+    setSelectedDept(dept);
+    const docs = mockDoctors[dept] || [];
+    if (docs.length > 0) {
+      const doc = docs[0];
+      setSelectedDoc(doc.name);
+      if (doc.slots.length > 0) {
+        setSelectedSlot(doc.slots[0]);
+      } else {
+        setSelectedSlot('');
+      }
+    } else {
+      setSelectedDoc('');
+      setSelectedSlot('');
+    }
+  };
+
+  // Sync slots when doctor changes manually
+  const handleDocChange = (docName: string) => {
+    setSelectedDoc(docName);
+    const docs = mockDoctors[selectedDept] || [];
+    const foundDoc = docs.find((d) => d.name === docName);
+    if (foundDoc && foundDoc.slots.length > 0) {
+      setSelectedSlot(foundDoc.slots[0]);
+    } else {
+      setSelectedSlot('');
     }
   };
 
@@ -167,7 +221,7 @@ export default function BookingPage() {
         setSelectedDoc('');
         setSelectedSlot('');
         setBookingDate('');
-        // Refresh history cache if fetched
+        // Refresh history cache
         fetchHistory();
       } else {
         setBookingError(data.error || 'Failed to book appointment');
@@ -189,12 +243,20 @@ export default function BookingPage() {
   const availableSlots = selectedDoc ? availableDoctors.find(d => d.name === selectedDoc)?.slots || [] : [];
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-2xl mx-auto px-1 pb-20 md:pb-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <Link
+          href="/dashboard/patient"
+          className="p-2 bg-white rounded-full shadow-sm border border-gray-100 hover:bg-gray-50 transition text-[#2ab8d8]"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </Link>
         <div>
-          <h1 className="text-2xl font-black text-[#003893] tracking-tight">Specialist Consultations</h1>
-          <p className="text-gray-400 text-xs font-semibold mt-0.5">Analyze symptoms and book appointments seamlessly.</p>
+          <h1 className="text-xl font-bold text-[#003893] tracking-tight">Specialist Bookings</h1>
+          <p className="text-xs text-gray-400 font-semibold">Triage symptoms and schedule medical appointments</p>
         </div>
       </div>
 
@@ -204,7 +266,7 @@ export default function BookingPage() {
           onClick={() => setActiveTab('book')}
           className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition duration-200 ${
             activeTab === 'book'
-              ? 'bg-[#2ab8d8] text-white shadow-sm'
+              ? 'bg-[#003893] text-white shadow-sm'
               : 'text-gray-500 hover:text-[#003893]'
           }`}
         >
@@ -214,7 +276,7 @@ export default function BookingPage() {
           onClick={() => setActiveTab('history')}
           className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition duration-200 ${
             activeTab === 'history'
-              ? 'bg-[#2ab8d8] text-white shadow-sm'
+              ? 'bg-[#003893] text-white shadow-sm'
               : 'text-gray-500 hover:text-[#003893]'
           }`}
         >
@@ -266,16 +328,16 @@ export default function BookingPage() {
               <div className="mt-6 p-5 bg-[#003893]/5 border border-[#003893]/10 rounded-2xl space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
                   <div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase block tracking-wider">Recommended Specialist</span>
-                    <span className="text-base font-black text-[#003893]">{recommendation.recommended_department}</span>
+                    <span className="text-[9px] font-bold text-gray-400 uppercase block tracking-wider">Recommended Specialist</span>
+                    <span className="text-sm font-black text-[#003893]">{recommendation.recommended_department}</span>
                   </div>
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 border rounded-xl text-[10px] font-extrabold capitalize ${getUrgencyBadgeColor(recommendation.urgency_level)}`}>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 border rounded-xl text-[9px] font-extrabold capitalize ${getUrgencyBadgeColor(recommendation.urgency_level)}`}>
                     {recommendation.urgency_level === 'urgent' && <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-ping" />}
                     {recommendation.urgency_level} urgency
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase block tracking-wider mb-0.5">Clinical Reasoning</span>
+                  <span className="text-[9px] font-bold text-gray-400 uppercase block tracking-wider mb-0.5">Clinical Reasoning</span>
                   <p className="text-xs text-gray-600 leading-relaxed">{recommendation.reasoning}</p>
                 </div>
               </div>
@@ -285,10 +347,14 @@ export default function BookingPage() {
           {/* Step 2: Appointment Scheduler */}
           <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-sm">
             <span className="inline-block bg-[#6366f1]/15 text-[#6366f1] text-[9px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-lg mb-3">
-              Step 2: Scheduling
+              Step 2: Verification & Scheduling
             </span>
-            <h2 className="text-base font-black text-[#003893] mb-1">Book an Appointment</h2>
-            <p className="text-gray-400 text-xs mb-4">Choose a department, doctor, and slot to schedule your consultation.</p>
+            <h2 className="text-base font-black text-[#003893] mb-1">Verify and Book Appointment</h2>
+            <p className="text-gray-400 text-xs mb-4">
+              {recommendation 
+                ? "The recommended details have been prefilled. Please review, adjust, and click Confirm to book."
+                : "Choose a department, doctor, and slot to schedule your consultation."}
+            </p>
 
             {bookingSuccess ? (
               <div className="text-center py-8 space-y-4">
@@ -307,6 +373,10 @@ export default function BookingPage() {
                       setBookingSuccess(false);
                       setRecommendation(null);
                       setSymptoms('');
+                      setSelectedDept('');
+                      setSelectedDoc('');
+                      setSelectedSlot('');
+                      setBookingDate('');
                     }}
                     className="px-4 py-2 bg-[#003893] text-white rounded-xl text-xs font-bold shadow hover:bg-[#002b70] transition"
                   >
@@ -325,14 +395,10 @@ export default function BookingPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Department selector */}
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Department</label>
+                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Department</label>
                     <select
                       value={selectedDept}
-                      onChange={(e) => {
-                        setSelectedDept(e.target.value);
-                        setSelectedDoc('');
-                        setSelectedSlot('');
-                      }}
+                      onChange={(e) => handleDeptChange(e.target.value)}
                       className="w-full p-3 text-xs font-semibold text-[#003893] bg-white border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2ab8d8]"
                     >
                       <option value="">Select Department</option>
@@ -344,7 +410,7 @@ export default function BookingPage() {
 
                   {/* Urgency */}
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Urgency</label>
+                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Urgency</label>
                     <select
                       value={urgency}
                       onChange={(e) => setUrgency(e.target.value as any)}
@@ -360,13 +426,10 @@ export default function BookingPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Doctor selector */}
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Available Doctor</label>
+                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Available Doctor</label>
                     <select
                       value={selectedDoc}
-                      onChange={(e) => {
-                        setSelectedDoc(e.target.value);
-                        setSelectedSlot('');
-                      }}
+                      onChange={(e) => handleDocChange(e.target.value)}
                       disabled={!selectedDept}
                       className="w-full p-3 text-xs font-semibold text-[#003893] bg-white border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2ab8d8] disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
@@ -379,7 +442,7 @@ export default function BookingPage() {
 
                   {/* Date selection */}
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Appointment Date</label>
+                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Appointment Date</label>
                     <input
                       type="date"
                       value={bookingDate}
@@ -393,7 +456,7 @@ export default function BookingPage() {
                 {/* Slots selection */}
                 {selectedDoc && (
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">Available Time Slots</label>
+                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-2">Available Time Slots</label>
                     <div className="flex flex-wrap gap-2">
                       {availableSlots.map((slot) => (
                         <button
@@ -424,7 +487,7 @@ export default function BookingPage() {
                   disabled={isBooking || !selectedDept || !selectedDoc || !selectedSlot || !bookingDate}
                   className="w-full py-3 bg-[#2ab8d8] hover:bg-[#1fa1bf] text-white rounded-2xl font-bold transition text-xs shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
-                  {isBooking ? 'Saving Booking...' : 'Confirm Appointment'}
+                  {isBooking ? 'Saving Booking...' : 'Confirm & Book Appointment'}
                 </button>
               </form>
             )}
