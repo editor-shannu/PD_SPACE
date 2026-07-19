@@ -60,10 +60,19 @@ function isStructuralGarbage(text: string): { isGarbage: boolean; reason?: strin
 
   if (alpha.length > 0) {
     // 2. Unique character distribution
+    // For short text, we ensure at least 25% unique characters.
+    // For longer text, unique ratio naturally declines since the alphabet has only 26 letters.
+    // So we check ratio for short text, and for longer text we check if there are at least 8 unique characters.
     const uniqueChars = new Set(alpha.split(''));
     const uniqueRatio = uniqueChars.size / alpha.length;
-    if (uniqueRatio < 0.25) {
-      return { isGarbage: true, reason: "Failed character distribution check (potential spam)." };
+    if (alpha.length <= 30) {
+      if (uniqueRatio < 0.25) {
+        return { isGarbage: true, reason: "Failed character distribution check (potential spam)." };
+      }
+    } else {
+      if (uniqueChars.size < 8) {
+        return { isGarbage: true, reason: "Failed character distribution check (potential spam)." };
+      }
     }
 
     // 3. Monotonous single character repetition
@@ -197,37 +206,57 @@ export async function POST(req: NextRequest): Promise<NextResponse<ExtractRespon
     // Build extraction prompt
     const prompt = buildExtractionPrompt(raw_text, document_type_hint);
 
-    // Call Gemini API (using standard gemini-1.5-flash model)
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
+    // Try calling Gemini API with a fallback chain of models
+    const modelsToTry = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+    let geminiResponse: Response | null = null;
+    let lastError: any = null;
+
+    for (const model of modelsToTry) {
+      try {
+        console.log(`[DEBUG] Attempting extraction with model: ${model}`);
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contents: [
                 {
-                  text: prompt,
+                  parts: [
+                    {
+                      text: prompt,
+                    },
+                  ],
                 },
               ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.1, // Low temperature for deterministic output
-            topK: 1,
-            topP: 1,
-            maxOutputTokens: 2048,
-          },
-        }),
-      }
-    );
+              generationConfig: {
+                temperature: 0.1, // Low temperature for deterministic output
+                topK: 1,
+                topP: 1,
+                maxOutputTokens: 2048,
+              },
+            }),
+          }
+        );
 
-    if (!geminiResponse.ok) {
-      const errorData = await geminiResponse.json();
-      console.error('Gemini API error:', errorData);
+        if (response.ok) {
+          geminiResponse = response;
+          break;
+        } else {
+          const errBody = await response.json().catch(() => ({}));
+          console.warn(`[DEBUG] Model ${model} failed with status ${response.status}:`, errBody);
+          lastError = errBody;
+        }
+      } catch (err) {
+        console.error(`[DEBUG] Fetch error for model ${model}:`, err);
+        lastError = err;
+      }
+    }
+
+    if (!geminiResponse) {
+      console.error('All Gemini API models failed. Last error:', lastError);
       return NextResponse.json(
         { success: false, error: 'Failed to extract data from Gemini API' },
         { status: 502 }
