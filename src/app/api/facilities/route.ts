@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     const googleKey = process.env.GOOGLE_PLACES_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
     if (googleKey && googleKey.startsWith('AIzaSy')) {
       try {
-        const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=50000&type=hospital&key=${googleKey}`;
+        const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=50000&keyword=hospital|clinic|pharmacy|diagnostic|medical&key=${googleKey}`;
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
@@ -54,8 +54,15 @@ export async function GET(req: NextRequest) {
             facilities = data.results.map((place: any, idx: number) => {
               const types = place.types || [];
               let type: Facility['type'] = 'hospital';
-              if (types.includes('pharmacy')) type = 'pharmacy';
-              else if (types.includes('doctor') || types.includes('health') || types.includes('dentist')) type = 'clinic';
+              const nameLower = place.name.toLowerCase();
+              
+              if (types.includes('pharmacy') || nameLower.includes('pharmacy')) {
+                type = 'pharmacy';
+              } else if (types.includes('laboratory') || nameLower.includes('diagnostic') || nameLower.includes('lab') || nameLower.includes('pathology')) {
+                type = 'diagnostic';
+              } else if (types.includes('doctor') || types.includes('dentist') || nameLower.includes('clinic') || nameLower.includes('care')) {
+                type = 'clinic';
+              }
 
               return {
                 id: place.place_id || `google-${idx}`,
@@ -122,6 +129,8 @@ export async function GET(req: NextRequest) {
 
                   if (elLat === undefined || elLng === undefined) return null;
 
+                  const phone = tags.phone || tags['contact:phone'] || tags['contact:mobile'] || tags.mobile;
+
                   return {
                     id: `osm-${element.id}`,
                     name: tags.name || tags.operator || `${type.charAt(0).toUpperCase() + type.slice(1)} Near Me`,
@@ -130,6 +139,7 @@ export async function GET(req: NextRequest) {
                     address: tags['addr:full'] || tags['addr:street'] || tags['addr:suburb'] || tags['addr:city'] || 'Nearby Area',
                     type,
                     distance: getDistance(lat, lng, elLat, elLng),
+                    phone: phone || undefined,
                   };
                 })
                 .filter((f: Facility | null): f is Facility => f !== null);
@@ -142,94 +152,6 @@ export async function GET(req: NextRequest) {
         } catch (err) {
           console.warn(`Overpass API endpoint ${endpoint} failed, trying next mirror:`, err);
         }
-      }
-    }
-
-    // 3. Fallback to generating simulated facilities within 50km if everything else fails
-    if (facilities.length === 0) {
-      console.log('All external APIs failed or returned no results. Generating realistic mock facilities.');
-      const mockNames = {
-        hospital: [
-          'Apollo Multispecialty Hospital',
-          'City General Hospital',
-          'Metro Health Medical Center',
-          'St. Jude Memorial Hospital',
-          'Grace Community Hospital',
-          'Pinecrest Medical Center',
-          'Valley View Hospital',
-          'Northside Medical Clinic & Hospital'
-        ],
-        clinic: [
-          'CareFirst Family Clinic',
-          'Downtown Urgent Care',
-          'Apex Pediatrics & Family Medicine',
-          'Summit Health Clinic',
-          'Lakeside Wellness Clinic',
-          'Express Care Clinic',
-          'PrimeHealth Dental & Medical'
-        ],
-        pharmacy: [
-          'Apollo Pharmacy',
-          'HealthMart Pharmacy',
-          'QuickCare Pharmacy',
-          'ValueRx Pharmacy',
-          'Community Care Pharmacy',
-          'Metro Pharmacy',
-          'Wellness Pharmacy'
-        ],
-        diagnostic: [
-          'Apex Diagnostic Labs',
-          'ClearView Imaging & Diagnostics',
-          'Precision Pathology Lab',
-          'Insight Diagnostics',
-          'Metro Scanning Center',
-          'First Choice Diagnostics'
-        ]
-      };
-
-      const mockAddresses = [
-        '123 Main St, Near Town Center',
-        '456 Oak Ave, Sector 4',
-        '789 Pine Rd, Opposite Metro Station',
-        '321 Elm St, Near Central Park',
-        '555 Maple Dr, Suite 100',
-        '777 Cedar Ln, Industrial Area',
-        '888 Birch Hwy, Near Bypass'
-      ];
-
-      const types: Facility['type'][] = ['hospital', 'clinic', 'pharmacy', 'diagnostic'];
-      
-      // Generate 12 varied facilities
-      for (let i = 0; i < 12; i++) {
-        const type = types[i % types.length];
-        const namesList = mockNames[type];
-        const baseName = namesList[Math.floor(Math.random() * namesList.length)];
-        const name = `${baseName} ${Math.floor(Math.random() * 90) + 10}`;
-        
-        // Generate random angle and distance within 50km
-        const angle = Math.random() * 2 * Math.PI;
-        // Keep it mostly close (e.g. 1 to 45 km)
-        const distKm = 1 + Math.random() * 44;
-        
-        // Convert distance to lat/lng offsets (approximate: 1 deg lat = 111km)
-        const latOffset = (distKm * Math.sin(angle)) / 111;
-        const lngOffset = (distKm * Math.cos(angle)) / (111 * Math.cos((lat * Math.PI) / 180));
-        
-        const fLat = lat + latOffset;
-        const fLng = lng + lngOffset;
-        const address = mockAddresses[Math.floor(Math.random() * mockAddresses.length)];
-        
-        facilities.push({
-          id: `mock-${type}-${i}`,
-          name,
-          lat: parseFloat(fLat.toFixed(6)),
-          lng: parseFloat(fLng.toFixed(6)),
-          address,
-          type,
-          rating: parseFloat((3.8 + Math.random() * 1.2).toFixed(1)),
-          distance: parseFloat(distKm.toFixed(1)),
-          phone: `+91 ${98765} ${Math.floor(10000 + Math.random() * 90000)}`
-        });
       }
     }
 

@@ -46,8 +46,77 @@ export default function FacilityLocatorPage() {
   // Mobile UI toggle: list vs map
   const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
 
+  // Track loaded details & summaries for selected facilities
+  const [facilityDetails, setFacilityDetails] = useState<{
+    [id: string]: { summary: string; rating?: number | null; loading: boolean };
+  }>({});
+
+  const loadedDetailIds = useRef<Set<string>>(new Set());
+
   // Store last fetched coordinates to avoid double-fetching for tiny GPS jitter
   const lastFetchedCoords = useRef<{ lat: number; lng: number } | null>(null);
+
+  // Dynamically fetch and cache Google AI Summary & Google Maps Rating when a facility is selected
+  useEffect(() => {
+    if (!selectedFacility) return;
+    const facId = selectedFacility.id;
+
+    if (loadedDetailIds.current.has(facId)) return;
+    loadedDetailIds.current.add(facId);
+
+    setFacilityDetails((prev) => ({
+      ...prev,
+      [facId]: { summary: '', loading: true },
+    }));
+
+    const loadDetails = async () => {
+      try {
+        const res = await fetch(
+          `/api/facilities/info?name=${encodeURIComponent(selectedFacility.name)}&address=${encodeURIComponent(
+            selectedFacility.address
+          )}&type=${selectedFacility.type}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            setFacilityDetails((prev) => ({
+              ...prev,
+              [facId]: {
+                summary: data.summary,
+                rating: data.rating,
+                loading: false,
+              },
+            }));
+            
+            // Update the facility rating in the main facilities list if fetched
+            if (data.rating !== undefined && data.rating !== null) {
+              setFacilities((prev) =>
+                prev.map((f) => (f.id === facId ? { ...f, rating: data.rating } : f))
+              );
+            }
+          } else {
+            setFacilityDetails((prev) => ({
+              ...prev,
+              [facId]: { summary: 'No additional overview available.', loading: false },
+            }));
+          }
+        } else {
+          setFacilityDetails((prev) => ({
+            ...prev,
+            [facId]: { summary: 'Failed to load details.', loading: false },
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching facility details:', err);
+        setFacilityDetails((prev) => ({
+          ...prev,
+          [facId]: { summary: 'Failed to load details.', loading: false },
+        }));
+      }
+    };
+
+    loadDetails();
+  }, [selectedFacility]);
 
   // Helper to fetch IP-based location as a fallback if browser GPS fails/is denied
   const fetchIPLocation = async () => {
@@ -395,27 +464,36 @@ export default function FacilityLocatorPage() {
                     </span>
                   </div>
 
-                  {/* Actions */}
+                  {/* Actions & AI Summary */}
                   {isSelected && (
-                    <div className="flex gap-2 mt-4 pt-2 animate-fade-in">
+                    <div className="mt-4 pt-3 border-t border-gray-100/60 space-y-3 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                      {/* Summary Section */}
+                      <div className="bg-sky-50/50 border border-sky-100/60 rounded-2xl p-4 text-xs">
+                        <h4 className="font-extrabold text-[#003893] flex items-center gap-1.5 mb-1.5 uppercase tracking-wide text-[10px]">
+                          ✨ Google AI Summary
+                        </h4>
+                        {facilityDetails[fac.id]?.loading ? (
+                          <div className="space-y-1.5 animate-pulse">
+                            <div className="h-3 bg-sky-200/50 rounded w-full"></div>
+                            <div className="h-3 bg-sky-200/50 rounded w-11/12"></div>
+                            <div className="h-3 bg-sky-200/50 rounded w-4/5"></div>
+                          </div>
+                        ) : (
+                          <p className="text-gray-600 font-medium leading-relaxed">
+                            {facilityDetails[fac.id]?.summary || 'No overview available for this facility.'}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Call Action */}
                       {fac.phone && (
                         <a
                           href={`tel:${fac.phone}`}
-                          className="flex-1 py-2 text-center bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl text-xs font-bold text-gray-600 transition"
-                          onClick={(e) => e.stopPropagation()}
+                          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-[#003893] hover:bg-[#0c4091] text-white rounded-2xl text-xs font-bold transition shadow-sm text-center"
                         >
-                          📞 Call
+                          📞 Call Facility ({fac.phone})
                         </a>
                       )}
-                      <Link
-                        href={`/dashboard/patient/booking?facility=${encodeURIComponent(
-                          fac.name
-                        )}&type=${fac.type}`}
-                        className="flex-1 py-2 text-center bg-[#003893] hover:bg-[#0c4091] rounded-xl text-xs font-bold text-white transition shadow-sm"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        🩺 Book Now
-                      </Link>
                     </div>
                   )}
                 </div>
