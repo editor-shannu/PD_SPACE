@@ -212,7 +212,7 @@ export default function PatientDashboard() {
                   <div className="flex-1 min-w-0">
                     <p className="text-[#003893] text-sm font-semibold truncate">{doc.fileName}</p>
                     <p className="text-gray-400 text-xs mt-0.5">
-                      {doc.extractedData?.doctor_name ? `Dr. ${doc.extractedData.doctor_name} · ` : ''}
+                      {doc.extractedData?.doctor_name ? `${/^(dr\.?)\b/i.test(doc.extractedData.doctor_name) ? '' : 'Dr. '}${doc.extractedData.doctor_name} · ` : ''}
                       <span className="capitalize">{doc.extractedData?.document_type?.replace('_', ' ') || 'document'}</span>
                     </p>
                   </div>

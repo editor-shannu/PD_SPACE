@@ -57,12 +57,12 @@ export default function RemindersPage() {
             }
           }
           doc.extractedData?.medications?.forEach((med, i) => {
-            if (med.frequency) {
+            if (med.name) {
               items.push({
                 id: `med-${doc._id}-${i}`,
                 type: 'medication',
                 title: med.name,
-                subtitle: [med.dosage, med.frequency].filter(Boolean).join(' · '),
+                subtitle: [med.dosage, med.frequency].filter(Boolean).join(' · ') || 'Active medication',
                 bucket: 'today',
                 accentColor: '#6366f1',
               });

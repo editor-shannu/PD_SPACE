@@ -47,6 +47,7 @@ export default function MyDocumentsPage() {
     { label: 'Prescriptions', value: 'prescription' },
     { label: 'Diagnostic Reports', value: 'diagnostic_report' },
     { label: 'Discharge Summaries', value: 'discharge_summary' },
+    { label: 'Others', value: 'other' },
   ];
 
   return (
