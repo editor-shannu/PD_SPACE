@@ -71,6 +71,26 @@ export default function FacilityLocatorPage() {
   // Prevent duplicate fetch calls for the same coords
   const lastFetchedCoords = useRef<{ lat: number; lng: number } | null>(null);
 
+  // Scanning countdown
+  const [scanSeconds, setScanSeconds] = useState(15);
+
+  useEffect(() => {
+    if (!isLoading) return;
+    setScanSeconds(15);
+    const interval = setInterval(() => {
+      setScanSeconds((prev) => (prev > 1 ? prev - 1 : 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
+  const getScanStatus = (sec: number) => {
+    if (sec > 12) return 'Checking cached results...';
+    if (sec > 9) return 'Connecting to OSM mirror 1...';
+    if (sec > 6) return 'Parallel racing backup mirrors...';
+    if (sec > 3) return 'Nominatim text search fallback...';
+    return 'Finalizing location details...';
+  };
+
   const getEmoji = (type: string) => {
     if (type === 'hospital') return '🏥';
     if (type === 'clinic') return '🩺';
@@ -366,9 +386,29 @@ export default function FacilityLocatorPage() {
           }`}
         >
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-3 bg-white/60 rounded-3xl border border-white">
-              <div className="h-10 w-10 border-4 border-[#2ab8d8]/30 border-t-[#2ab8d8] rounded-full animate-spin" />
-              <p className="text-gray-400 text-xs font-semibold animate-pulse">Scanning nearby medical centers...</p>
+            <div className="flex flex-col items-center justify-center py-20 px-6 gap-4 bg-white/60 rounded-3xl border border-white shadow-sm">
+              {/* Spinner */}
+              <div className="relative flex items-center justify-center">
+                <div className="h-14 w-14 border-4 border-[#2ab8d8]/10 border-t-[#2ab8d8] rounded-full animate-spin" />
+                <span className="absolute text-xs font-black text-[#003893]">{scanSeconds}s</span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full max-w-xs bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className="bg-gradient-to-r from-[#2ab8d8] to-[#003893] h-1.5 transition-all duration-1000 ease-linear"
+                  style={{ width: `${((15 - scanSeconds) / 15) * 100}%` }}
+                />
+              </div>
+
+              <div className="text-center">
+                <p className="text-[#003893] text-xs font-extrabold tracking-wide uppercase animate-pulse">
+                  {getScanStatus(scanSeconds)}
+                </p>
+                <p className="text-gray-400 text-[10px] font-semibold mt-1">
+                  Estimated scanning time: ~{scanSeconds} seconds remaining
+                </p>
+              </div>
             </div>
           ) : processedFacilities.length === 0 ? (
             <div className="bg-white/60 border border-gray-200 rounded-3xl p-10 text-center shadow-sm">
