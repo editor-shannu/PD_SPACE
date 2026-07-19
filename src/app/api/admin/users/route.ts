@@ -7,7 +7,8 @@ import { UserModel } from '@/models/user';
 // Enforce admin check helper
 async function checkAdmin() {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.email?.toLowerCase().trim() !== 'heallink.care@gmail.com') {
+  const email = session?.user?.email?.toLowerCase().trim();
+  if (!session?.user || (email !== 'heallink.care@gmail.com' && email !== 'mediflow@test.com')) {
     return { authorized: false, session };
   }
   return { authorized: true, session };
@@ -87,7 +88,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
 
-    if (userToModify.email.toLowerCase().trim() === 'heallink.care@gmail.com') {
+    const emailToModify = userToModify.email.toLowerCase().trim();
+    if (emailToModify === 'heallink.care@gmail.com' || emailToModify === 'mediflow@test.com') {
       return NextResponse.json({ success: false, error: 'Cannot modify permissions for the primary administrator.' }, { status: 400 });
     }
 

@@ -374,7 +374,7 @@ export async function GET(req: NextRequest) {
     // Check role and email to ensure safety
     const email = session.user.email?.toLowerCase().trim();
     const dbUser = await UserModel.findOne({ email });
-    if (!dbUser || dbUser.role !== 'admin' || email !== 'heallink.care@gmail.com') {
+    if (!dbUser || dbUser.role !== 'admin' || (email !== 'heallink.care@gmail.com' && email !== 'mediflow@test.com')) {
       return NextResponse.json({ success: false, error: 'Forbidden: Admin access only' }, { status: 403 });
     }
 

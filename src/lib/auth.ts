@@ -21,18 +21,53 @@ export const authOptions: NextAuthOptions = {
       name: 'Firebase Google',
       credentials: {
         email:    { label: 'Email',    type: 'text' },
+        password: { label: 'Password', type: 'password' },
         name:     { label: 'Name',     type: 'text' },
         image:    { label: 'Image',    type: 'text' },
         uid:      { label: 'UID',      type: 'text' },
         role:     { label: 'Role',     type: 'text' },
       },
       async authorize(credentials) {
-        // Require at minimum an email from Firebase
+        // Require at minimum an email from login
         if (!credentials?.email) {
-          throw new Error('No email provided from Google sign-in');
+          throw new Error('No email provided');
         }
 
         const email = credentials.email.trim().toLowerCase();
+        const password = credentials.password;
+
+        if (email === 'mediflow@test.com') {
+          if (password !== 'mediflow@2026') {
+            throw new Error('Invalid password for demo account');
+          }
+
+          try {
+            await connectDB();
+            let user = await UserModel.findOne({ email });
+            if (!user) {
+              user = new UserModel({
+                email,
+                name: 'MediFlow Evaluator',
+                role: 'admin',
+              });
+              await user.save();
+            } else if (user.role !== 'admin') {
+              user.role = 'admin';
+              await user.save();
+            }
+
+            return {
+              id:    user._id.toString(),
+              email,
+              name:  user.name,
+              role:  'admin',
+            } as SessionUser;
+          } catch (error: any) {
+            console.error('MediFlow evaluator auth error:', error);
+            throw new Error(`Authentication failed — ${error.message || 'database error'}`);
+          }
+        }
+
         const name  = credentials.name  || email.split('@')[0];
         const image = credentials.image || null;
         const isAdminEmail = email === 'heallink.care@gmail.com';

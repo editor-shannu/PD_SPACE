@@ -104,6 +104,87 @@ function LoginForm() {
             </div>
           )}
 
+          {/* Credentials Form */}
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setError('');
+              setLoading(true);
+              const target = e.target as any;
+              const email = target.email.value.trim();
+              const password = target.password.value;
+
+              if (!email || !password) {
+                setError('Email and Password are required.');
+                setLoading(false);
+                return;
+              }
+
+              try {
+                console.log('[DEBUG] Credentials login clicked', email);
+                const nextAuthResult = await signIn('credentials', {
+                  email,
+                  password,
+                  redirect: false,
+                  callbackUrl,
+                });
+
+                if (!nextAuthResult?.ok) {
+                  setError(nextAuthResult?.error || 'Invalid email or password.');
+                  setLoading(false);
+                  return;
+                }
+
+                // Redirect based on role
+                const emailLower = email.toLowerCase().trim();
+                if (emailLower === 'mediflow@test.com' || emailLower === 'heallink.care@gmail.com') {
+                  window.location.href = '/dashboard/admin';
+                } else {
+                  window.location.href = callbackUrl;
+                }
+              } catch (err: any) {
+                setError(err.message || 'Authentication failed.');
+                setLoading(false);
+              }
+            }}
+            className="w-full flex flex-col gap-3"
+          >
+            <div className="w-full">
+              <label className="block text-gray-400 font-bold text-[10px] uppercase mb-1 ml-1">Email Address</label>
+              <input
+                type="email"
+                name="email"
+                required
+                placeholder="mediflow@test.com"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#2ab8d8] focus:bg-white text-gray-700 transition"
+              />
+            </div>
+            <div className="w-full">
+              <label className="block text-gray-400 font-bold text-[10px] uppercase mb-1 ml-1">Password</label>
+              <input
+                type="password"
+                name="password"
+                required
+                placeholder="••••••••"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#2ab8d8] focus:bg-white text-gray-700 transition"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-[#2ab8d8] hover:bg-[#209bb6] active:scale-[0.98] disabled:bg-gray-300 text-white font-bold py-3.5 rounded-2xl shadow transition duration-200 text-xs mt-1"
+            >
+              {isLoading ? 'Signing in...' : 'Sign In with Credentials'}
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div className="w-full flex items-center justify-between gap-3 text-gray-300 my-1">
+            <div className="h-[1px] bg-gray-100 flex-1" />
+            <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">or</span>
+            <div className="h-[1px] bg-gray-100 flex-1" />
+          </div>
+
           {/* Google Button */}
           <button
             onClick={handleGoogleSignIn}
