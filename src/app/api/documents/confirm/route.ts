@@ -87,6 +87,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ConfirmRespon
       rawText: rawText || 'No text extracted.',
       extractedData: validationResult.data,
       isConfirmed: true,
+      fileUrl: file_id ? `/api/documents/download?fileId=${file_id}` : undefined,
     };
 
     // Save to MongoDB

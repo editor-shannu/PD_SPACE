@@ -65,9 +65,32 @@ export async function POST(req: NextRequest): Promise<NextResponse<UploadRespons
 
     // Connect to database
     await connectDB();
+    
+    const mongoose = await import('mongoose');
+    const { GridFSBucket } = await import('mongodb');
+    const db = mongoose.default.connection.db;
+    if (!db) {
+      throw new Error('Database connection not established');
+    }
+    const bucket = new GridFSBucket(db, { bucketName: 'documents' });
 
-    // Generate unique file ID
-    const fileId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Stream the file into GridFS
+    const uploadStream = bucket.openUploadStream(file.name, {
+      contentType: file.type,
+      metadata: { patientId },
+    });
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    await new Promise<void>((resolve, reject) => {
+      uploadStream.on('error', (err) => reject(err));
+      uploadStream.end(buffer, () => {
+        resolve();
+      });
+    });
+
+    const fileId = uploadStream.id.toString();
     const uploadedAt = new Date().toISOString();
 
     return NextResponse.json(
