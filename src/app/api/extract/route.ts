@@ -139,6 +139,26 @@ ${rawText}
 Return ONLY valid JSON, no additional text or markdown formatting. Ensure all dates are in ISO 8601 format (YYYY-MM-DD).`;
 }
 
+function cleanNullValues(obj: any): any {
+  if (obj === null) {
+    return undefined;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanNullValues(item));
+  }
+  if (typeof obj === 'object' && obj !== undefined) {
+    const cleaned: any = {};
+    for (const key of Object.keys(obj)) {
+      const val = obj[key];
+      if (val !== null) {
+        cleaned[key] = cleanNullValues(val);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse<ExtractResponse>> {
   try {
     const body = (await req.json()) as ExtractRequest;
@@ -286,6 +306,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ExtractRespon
         throw new Error('No JSON found in response');
       }
       extractedJson = JSON.parse(jsonMatch[0]);
+      extractedJson = cleanNullValues(extractedJson);
     } catch (parseError) {
       console.error('JSON parsing error:', parseError, 'Response text:', extractedText);
       return NextResponse.json(
