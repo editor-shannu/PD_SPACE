@@ -2,11 +2,13 @@ import NextAuth from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { NextRequest } from 'next/server';
 
+const authHandler = NextAuth(authOptions);
+
 const handler = (req: NextRequest, ctx: any) => {
   const host = req.headers.get('host') || 'mediflow.shanmukhmedisetty.site';
   const proto = req.headers.get('x-forwarded-proto') || 'https';
   process.env.NEXTAUTH_URL = `${proto}://${host}`;
-  return NextAuth(req, ctx, authOptions);
+  return authHandler(req, ctx);
 };
 
 export { handler as GET, handler as POST };
