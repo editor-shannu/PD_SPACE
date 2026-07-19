@@ -75,6 +75,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
 
+  const isDoctorRoute = pathname?.startsWith('/dashboard/doctor');
+
   const handleLogout = async () => {
     await signOut({ redirect: false });
     router.push('/auth/login');
@@ -91,34 +93,45 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex justify-between items-center h-16">
             {/* Brand */}
-            <Link href="/dashboard/patient" className="flex items-center gap-2.5">
+            <Link href={isDoctorRoute ? "/dashboard/doctor" : "/dashboard/patient"} className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-2xl bg-[#2ab8d8] flex items-center justify-center shadow-md shadow-[#2ab8d8]/30">
                 <svg className="h-4.5 w-4.5 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>
                 </svg>
               </div>
-              <span className="text-lg font-black text-[#003893] tracking-tight">MediFlow</span>
+              <span className="text-lg font-black text-[#003893] tracking-tight">
+                {isDoctorRoute ? 'MediFlow Doctor' : 'MediFlow'}
+              </span>
             </Link>
 
             {/* Desktop Nav */}
             <nav className="hidden md:flex items-center gap-1">
-              {navItems.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                      isActive
-                        ? 'bg-[#2ab8d8]/15 text-[#2ab8d8]'
-                        : 'text-gray-500 hover:text-[#003893] hover:bg-gray-100/60'
-                    }`}
-                  >
-                    {item.icon}
-                    {item.name}
-                  </Link>
-                );
-              })}
+              {!isDoctorRoute ? (
+                navItems.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                        isActive
+                          ? 'bg-[#2ab8d8]/15 text-[#2ab8d8]'
+                          : 'text-gray-500 hover:text-[#003893] hover:bg-gray-100/60'
+                      }`}
+                    >
+                      {item.icon}
+                      {item.name}
+                    </Link>
+                  );
+                })
+              ) : (
+                <Link
+                  href="/dashboard/doctor"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#2ab8d8]/15 text-[#2ab8d8]"
+                >
+                  🩺 Doctor Console
+                </Link>
+              )}
             </nav>
 
             {/* User + Logout */}
@@ -139,7 +152,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </div>
                 )}
                 <div className="hidden sm:block">
-                  <p className="text-xs font-bold text-[#003893] leading-none">{session?.user?.name || 'Patient'}</p>
+                  <p className="text-xs font-bold text-[#003893] leading-none">
+                    {session?.user?.name || (isDoctorRoute ? 'Doctor' : 'Patient')}
+                  </p>
                   <p className="text-[10px] text-gray-400 mt-0.5">{session?.user?.email}</p>
                 </div>
               </div>
@@ -160,35 +175,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </main>
 
       {/* ─── Bottom Nav — Mobile (Glassmorphic) ─────────────── */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/70 backdrop-blur-xl border-t border-white/80 shadow-lg">
-        <div className="flex justify-around items-center h-16 px-2 max-w-lg mx-auto">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 ${
-                  isActive ? 'text-[#2ab8d8]' : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                {item.icon}
-                <span className="text-[9px] font-bold uppercase tracking-wider">{item.name}</span>
-              </Link>
-            );
-          })}
-          {/* Sign Out */}
-          <button
-            onClick={handleLogout}
-            className="flex flex-col items-center gap-1 px-3 py-2 text-gray-400 hover:text-gray-600 rounded-xl transition"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            <span className="text-[9px] font-bold uppercase tracking-wider">Out</span>
-          </button>
+      {!isDoctorRoute && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/70 backdrop-blur-xl border-t border-white/80 shadow-lg">
+          <div className="flex justify-around items-center h-16 px-2 max-w-lg mx-auto">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 ${
+                    isActive ? 'text-[#2ab8d8]' : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  {item.icon}
+                  <span className="text-[9px] font-bold uppercase tracking-wider">{item.name}</span>
+                </Link>
+              );
+            })}
+            {/* Sign Out */}
+            <button
+              onClick={handleLogout}
+              className="flex flex-col items-center gap-1 px-3 py-2 text-gray-400 hover:text-gray-600 rounded-xl transition"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span className="text-[9px] font-bold uppercase tracking-wider">Out</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

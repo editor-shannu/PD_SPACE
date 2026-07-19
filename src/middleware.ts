@@ -33,6 +33,14 @@ const authMiddleware = withAuth(
         loginUrl.searchParams.set('callbackUrl', pathname);
         return NextResponse.redirect(loginUrl);
       }
+
+      // Check role access for doctor dashboard
+      if (pathname.startsWith('/dashboard/doctor')) {
+        const userRole = token.role || 'patient';
+        if (userRole !== 'doctor' && userRole !== 'admin') {
+          return NextResponse.redirect(new URL('/dashboard/patient', request.url));
+        }
+      }
     }
 
     return NextResponse.next();
