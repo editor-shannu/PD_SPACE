@@ -71,6 +71,7 @@ export default function middleware(request: NextRequest, event: any) {
   const host = request.headers.get('host') || 'mediflow.shanmukhmedisetty.site';
   const proto = request.headers.get('x-forwarded-proto') || 'https';
   process.env.NEXTAUTH_URL = `${proto}://${host}`;
+  process.env.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || 'default-mediflow-jwt-secret-key-1234567890-abcdef';
 
   return authMiddleware(request as any, event);
 }
