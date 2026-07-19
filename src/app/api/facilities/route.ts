@@ -79,7 +79,12 @@ export async function GET(req: NextRequest) {
     if (facilities.length === 0) {
       try {
         const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json][timeout:15];(node["amenity"="hospital"](around:50000,${lat},${lng});way["amenity"="hospital"](around:50000,${lat},${lng});node["amenity"="clinic"](around:50000,${lat},${lng});way["amenity"="clinic"](around:50000,${lat},${lng});node["amenity"="pharmacy"](around:50000,${lat},${lng});way["amenity"="pharmacy"](around:50000,${lat},${lng}););out center;`;
-        const response = await fetch(overpassUrl);
+        const response = await fetch(overpassUrl, {
+          headers: {
+            'User-Agent': 'MediFlowHealthcareLocator/1.0 (contact: support@mediflow.com)',
+            'Accept': 'application/json',
+          },
+        });
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data.elements)) {
