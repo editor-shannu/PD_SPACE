@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     const googleKey = process.env.GOOGLE_PLACES_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
     if (googleKey && googleKey.startsWith('AIzaSy')) {
       try {
-        const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=5000&type=hospital|pharmacy&key=${googleKey}`;
+        const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=50000&type=hospital|pharmacy&key=${googleKey}`;
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
     // 2. Fallback to OpenStreetMap Overpass API if no results
     if (facilities.length === 0) {
       try {
-        const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json][timeout:15];(node["amenity"="hospital"](around:5000,${lat},${lng});way["amenity"="hospital"](around:5000,${lat},${lng});node["amenity"="clinic"](around:5000,${lat},${lng});way["amenity"="clinic"](around:5000,${lat},${lng});node["amenity"="pharmacy"](around:5000,${lat},${lng});way["amenity"="pharmacy"](around:5000,${lat},${lng}););out center;`;
+        const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json][timeout:15];(node["amenity"="hospital"](around:50000,${lat},${lng});way["amenity"="hospital"](around:50000,${lat},${lng});node["amenity"="clinic"](around:50000,${lat},${lng});way["amenity"="clinic"](around:50000,${lat},${lng});node["amenity"="pharmacy"](around:50000,${lat},${lng});way["amenity"="pharmacy"](around:50000,${lat},${lng}););out center;`;
         const response = await fetch(overpassUrl);
         if (response.ok) {
           const data = await response.json();

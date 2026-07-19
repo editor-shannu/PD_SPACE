@@ -33,9 +33,9 @@ const FacilityMap = dynamic(
 type FacilityFilter = 'all' | 'hospital' | 'clinic' | 'pharmacy' | 'diagnostic';
 
 export default function FacilityLocatorPage() {
-  // Default coordinates: Bengaluru, India
-  const [lat, setLat] = useState(12.9716);
-  const [lng, setLng] = useState(77.5946);
+  // Default coordinates: null to ensure we wait for device geolocation first
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
   
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
@@ -84,7 +84,11 @@ export default function FacilityLocatorPage() {
   useEffect(() => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       setLocationStatus('denied');
-      fetchFacilities(lat, lng);
+      const defaultLat = 12.9716;
+      const defaultLng = 77.5946;
+      setLat(defaultLat);
+      setLng(defaultLng);
+      fetchFacilities(defaultLat, defaultLng);
       return;
     }
 
@@ -111,7 +115,11 @@ export default function FacilityLocatorPage() {
             startWatching(false);
           } else {
             setLocationStatus('denied');
-            fetchFacilities(lat, lng);
+            const defaultLat = 12.9716;
+            const defaultLng = 77.5946;
+            setLat(defaultLat);
+            setLng(defaultLng);
+            fetchFacilities(defaultLat, defaultLng);
           }
         },
         { enableHighAccuracy: highAccuracy, timeout: 8000, maximumAge: 10000 }
@@ -127,6 +135,16 @@ export default function FacilityLocatorPage() {
       }
     };
   }, []);
+
+  if (lat === null || lng === null) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-3 bg-white/60 backdrop-blur-xl border border-white rounded-3xl p-10 max-w-5xl mx-auto">
+        <div className="h-10 w-10 border-4 border-[#2ab8d8]/30 border-t-[#2ab8d8] rounded-full animate-spin" />
+        <p className="text-[#003893] text-sm font-black animate-pulse">Detecting your location...</p>
+        <p className="text-gray-400 text-xs font-semibold">Please allow location permissions if prompted.</p>
+      </div>
+    );
+  }
 
   const filteredFacilities = facilities.filter((fac) => {
     if (activeFilter === 'all') return true;
