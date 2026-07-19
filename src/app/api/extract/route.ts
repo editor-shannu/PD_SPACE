@@ -156,7 +156,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ExtractRespon
     const structuralCheck = isStructuralGarbage(raw_text);
     if (structuralCheck.isGarbage) {
       return NextResponse.json(
-        { success: false, error: `Wrong file: ${structuralCheck.reason}` },
+        { success: false, error: `Wrong file: ${structuralCheck.reason}`, isValidationError: true },
         { status: 400 }
       );
     }
@@ -180,7 +180,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<ExtractRespon
           return NextResponse.json(
             { 
               success: false, 
-              error: validationData.reason || 'Wrong file: The uploaded document is not related to hospital/medical records.' 
+              error: validationData.reason || 'Wrong file: The uploaded document is not related to hospital/medical records.',
+              isValidationError: true
             },
             { status: 400 }
           );
@@ -311,7 +312,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<ExtractRespon
       return NextResponse.json(
         {
           success: false,
-          error: validationResult.data.invalid_reason || 'Wrong file: Uploaded document is not related to hospital/medical records.'
+          error: validationResult.data.invalid_reason || 'Wrong file: Uploaded document is not related to hospital/medical records.',
+          isValidationError: true
         },
         { status: 400 }
       );

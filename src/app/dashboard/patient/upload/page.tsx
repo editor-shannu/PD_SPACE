@@ -26,6 +26,7 @@ const PatientUploadPage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<UploadStep>('list'); // Start with the list page of documents
   const [uploadState, setUploadState] = useState<UploadState>({});
   const [error, setError] = useState<string>('');
+  const [isValidationError, setIsValidationError] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(false);
   const [documents, setDocuments] = useState<Document[]>([]);
 
@@ -53,6 +54,7 @@ const PatientUploadPage: React.FC = () => {
   const handleUploadSuccess = useCallback(
     async (fileId: string, fileName: string, mimeType: string, file: File) => {
       setError('');
+      setIsValidationError(false);
       setUploadState({
         fileId,
         fileName,
@@ -99,6 +101,8 @@ const PatientUploadPage: React.FC = () => {
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Processing failed';
         setError(errorMessage);
+        const isValErr = err && typeof err === 'object' && 'isValidationError' in err && err.isValidationError;
+        setIsValidationError(!!isValErr);
         setCurrentStep('upload');
       } finally {
         setIsLoading(false);
@@ -147,6 +151,7 @@ const PatientUploadPage: React.FC = () => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to confirm';
       setError(errorMessage);
+      setIsValidationError(false);
     } finally {
       setIsLoading(false);
     }
@@ -156,10 +161,12 @@ const PatientUploadPage: React.FC = () => {
     setCurrentStep('list');
     setUploadState({});
     setError('');
+    setIsValidationError(false);
   }, []);
 
   const handleError = useCallback((errorMessage: string) => {
     setError(errorMessage);
+    setIsValidationError(false);
   }, []);
 
   const handleViewDetails = useCallback((doc: Document) => {
@@ -187,17 +194,29 @@ const PatientUploadPage: React.FC = () => {
           )}
         </div>
 
-        {/* Error Alert */}
+        {/* Error / Warning Alert */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3">
-            <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-            <div>
-              <p className="font-bold text-red-800 text-xs uppercase tracking-wider">Error Occurred</p>
-              <p className="text-red-700 text-xs font-medium">{error}</p>
+          isValidationError ? (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
+              <svg className="w-5.5 h-5.5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <p className="font-bold text-amber-800 text-xs uppercase tracking-wider">Document Notice</p>
+                <p className="text-amber-700 text-xs font-semibold">{error}</p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3">
+              <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <p className="font-bold text-red-800 text-xs uppercase tracking-wider">Error Occurred</p>
+                <p className="text-red-700 text-xs font-medium">{error}</p>
+              </div>
+            </div>
+          )
         )}
 
         {/* Main Content */}

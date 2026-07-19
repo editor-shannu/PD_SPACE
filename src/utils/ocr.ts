@@ -87,6 +87,15 @@ export async function extractTextFromDocument(
   }
 }
 
+export class ValidationError extends Error {
+  isValidationError: boolean;
+  constructor(message: string) {
+    super(message);
+    this.name = 'ValidationError';
+    this.isValidationError = true;
+  }
+}
+
 /**
  * Utility function to send raw text to our Gemini API endpoint for structured extraction
  */
@@ -106,7 +115,14 @@ export async function extractStructuredData(
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
+    let errorData: any = {};
+    try {
+      errorData = await response.json();
+    } catch (e) {}
+    
+    if (errorData.isValidationError) {
+      throw new ValidationError(errorData.error || 'Invalid medical document');
+    }
     throw new Error(errorData.error || 'Failed to extract structured data');
   }
 
@@ -114,6 +130,9 @@ export async function extractStructuredData(
   if (data.success) {
     return data.extracted_data;
   } else {
+    if (data.isValidationError) {
+      throw new ValidationError(data.error || 'Invalid medical document');
+    }
     throw new Error(data.error || 'Failed to extract structured data');
   }
 }
