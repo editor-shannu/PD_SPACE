@@ -49,58 +49,44 @@ function calculateBigramSpamScore(alpha: string): number {
 }
 
 function isStructuralGarbage(text: string): { isGarbage: boolean; reason?: string } {
-  const norm = text.toLowerCase().replace(/\s+/g, ' ').trim();
-  const alpha = norm.replace(/[^a-z]/g, '');
-  const words = norm.split(' ');
-
   // 1. Length constraint
-  if (text.length < 8 || words.length < 2) {
+  if (text.length < 8) {
     return { isGarbage: true, reason: "Input is too short to express a meaningful document." };
   }
 
-  if (alpha.length > 0) {
-    // 2. Unique character distribution
-    // For short text, we ensure at least 25% unique characters.
-    // For longer text, unique ratio naturally declines since the alphabet has only 26 letters.
-    // So we check ratio for short text, and for longer text we check if there are at least 8 unique characters.
-    const uniqueChars = new Set(alpha.split(''));
-    const uniqueRatio = uniqueChars.size / alpha.length;
-    if (alpha.length <= 30) {
-      if (uniqueRatio < 0.25) {
-        return { isGarbage: true, reason: "Failed character distribution check (potential spam)." };
-      }
-    } else {
-      if (uniqueChars.size < 8) {
-        return { isGarbage: true, reason: "Failed character distribution check (potential spam)." };
-      }
-    }
-
-    // 3. Monotonous single character repetition
-    const freq: { [key: string]: number } = {};
-    for (const char of alpha) {
-      freq[char] = (freq[char] || 0) + 1;
-    }
-    const maxFreq = Math.max(...Object.values(freq));
-    if (maxFreq / alpha.length > 0.40) {
-      return { isGarbage: true, reason: "Dominant single character exceeds safety threshold." };
-    }
+  // 2. Alphanumeric presence constraint (must contain at least some letters or numbers)
+  const hasAlphanumeric = /[a-zA-Z0-9]/.test(text);
+  if (!hasAlphanumeric) {
+    return { isGarbage: true, reason: "Input does not contain any alphanumeric characters." };
   }
 
-  // 4. Runaway consecutive characters
-  const consecutiveMatch = text.toLowerCase().match(/(.)\1{4,}/g);
+  // 3. Runaway letters repetition (e.g. "aaaaaaaaaa" or "xxxxxxxxxx"), ignoring spaces, underscores, dots, and numbers
+  const consecutiveMatch = text.toLowerCase().match(/([a-z])\1{9,}/g);
   if (consecutiveMatch && consecutiveMatch.length > 0) {
     return { isGarbage: true, reason: "Excessive consecutive repeated characters detected." };
   }
 
-  // 5. Semantic Bigram Frequency Filter
-  if (alpha.length >= 6) {
-    const spamScore = calculateBigramSpamScore(alpha);
-    if (spamScore > 0.55) {
-      return { isGarbage: true, reason: "Unreadable text geometry (keyboard smash layout)." };
-    }
-  }
-
   return { isGarbage: false };
+}
+
+// Helper to check if text contains obvious medical/healthcare keywords
+function containsMedicalKeywords(text: string): boolean {
+  const normalized = text.toLowerCase();
+  const medicalKeywords = [
+    'rx', 'prescription', 'tablet', 'tab', 'capsule', 'cap', 'mg', 'ml', 'mcg',
+    'doctor', 'physician', 'patient', 'diagnose', 'diagnosis', 'symptom',
+    'hospital', 'clinic', 'medical', 'medicine', 'report', 'laboratory', 'lab',
+    'urine', 'blood', 'hemoglobin', 'wbc', 'platelets', 'glucose', 'creatinine',
+    'fever', 'cough', 'pain', 'dose', 'dosage', 'directed', 'once daily', 'twice daily',
+    'temperature', 'pressure', 'pulse', 'spo2'
+  ];
+  return medicalKeywords.some(keyword => {
+    if (keyword.length <= 3) {
+      const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+      return regex.test(normalized);
+    }
+    return normalized.includes(keyword);
+  });
 }
 
 // Structured extraction prompt for Gemini API
@@ -108,6 +94,8 @@ function buildExtractionPrompt(rawText: string, documentTypeHint?: string): stri
   const typeHint = documentTypeHint ? `Document type hint: ${documentTypeHint}\n\n` : '';
 
   return `You are a medical document parsing assistant.
+IMPORTANT: Prescriptions are sometimes handwritten and can be hard to read, resulting in noisy OCR text, spelling mistakes, or disjointed letters. Even if the text is messy, noisy, or hard to read, if it contains medical terms, doctor names/headers, patient details, vital signs, or medicine names, you MUST treat it as a valid medical document ("is_valid_medical_document": true). Use your medical knowledge to correct typos, infer misspelled medicine names (e.g. "paraceta-ol" -> "Paracetamol"), and extract all possible fields.
+
 First, check if the provided text is a legitimate medical/hospital document (like a doctor's prescription, diagnostic test report, lab report, hospital discharge summary, referral letter, clinical note, or medical invoice).
 If the text is NOT a medical/hospital document (for example, if it is a general project report, programming code, presentation slide, recipe, personal letter, non-medical document, or random gibberish), then mark "is_valid_medical_document" as false, and provide the reason in "invalid_reason". Otherwise, mark "is_valid_medical_document" as true.
 
@@ -181,37 +169,42 @@ export async function POST(req: NextRequest): Promise<NextResponse<ExtractRespon
       );
     }
 
-    // Call FastAPI Semantic Document Validation Service
-    try {
-      const fastApiUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://127.0.0.1:8000';
-      console.log(`[DEBUG] Calling FastAPI validation microservice at: ${fastApiUrl}/api/v1/validate-document`);
-      const validationResponse = await fetch(`${fastApiUrl}/api/v1/validate-document`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: raw_text }),
-      });
+    // Call FastAPI Semantic Document Validation Service if not obviously medical
+    const isObviousMedical = containsMedicalKeywords(raw_text);
+    if (!isObviousMedical) {
+      try {
+        const fastApiUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://127.0.0.1:8000';
+        console.log(`[DEBUG] Calling FastAPI validation microservice at: ${fastApiUrl}/api/v1/validate-document`);
+        const validationResponse = await fetch(`${fastApiUrl}/api/v1/validate-document`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text: raw_text }),
+        });
 
-      if (validationResponse.ok) {
-        const validationData = await validationResponse.json();
-        console.log('[DEBUG] FastAPI validation response:', validationData);
-        if (validationData.valid === false) {
-          return NextResponse.json(
-            { 
-              success: false, 
-              error: validationData.reason || 'Wrong file: The uploaded document is not related to hospital/medical records.',
-              isValidationError: true
-            },
-            { status: 400 }
-          );
+        if (validationResponse.ok) {
+          const validationData = await validationResponse.json();
+          console.log('[DEBUG] FastAPI validation response:', validationData);
+          if (validationData.valid === false) {
+            return NextResponse.json(
+              { 
+                success: false, 
+                error: validationData.reason || 'Wrong file: The uploaded document is not related to hospital/medical records.',
+                isValidationError: true
+              },
+              { status: 400 }
+            );
+          }
+        } else {
+          console.warn('FastAPI validation service returned non-200 status:', validationResponse.status);
         }
-      } else {
-        console.warn('FastAPI validation service returned non-200 status:', validationResponse.status);
+      } catch (fastApiError) {
+        // Log the error but fallback to Gemini's internal validation to keep the app working if the microservice is down/unreachable
+        console.error('Failed to communicate with FastAPI validation service, falling back to Gemini:', fastApiError);
       }
-    } catch (fastApiError) {
-      // Log the error but fallback to Gemini's internal validation to keep the app working if the microservice is down/unreachable
-      console.error('Failed to communicate with FastAPI validation service, falling back to Gemini:', fastApiError);
+    } else {
+      console.log('[DEBUG] Document contains obvious medical keywords; bypassing FastAPI validation microservice.');
     }
 
     // Get Gemini API key

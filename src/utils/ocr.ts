@@ -36,39 +36,78 @@ export async function extractTextFromDocument(
       
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       
-      if (onProgress) onProgress(0.3);
+      if (onProgress) onProgress(0.2);
       
       const arrayBuffer = await file.arrayBuffer();
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const pdf = await loadingTask.promise;
       
-      if (onProgress) onProgress(0.5);
+      if (onProgress) onProgress(0.3);
       
       let fullText = '';
       const numPages = pdf.numPages;
+      let hasSelectableText = false;
       
+      // Attempt to extract selectable text first
       for (let i = 1; i <= numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
         const pageText = textContent.items.map((item: any) => item.str).join(' ');
-        fullText += pageText + '\n';
-        
-        if (onProgress) {
-          onProgress(0.5 + (i / numPages) * 0.4);
+        if (pageText.trim().length > 0) {
+          hasSelectableText = true;
         }
+        fullText += pageText + '\n';
       }
       
+      // If the PDF has searchable text, return it
+      if (hasSelectableText && fullText.trim().length > 30) {
+        if (onProgress) onProgress(1.0);
+        return fullText.trim();
+      }
+
+      // Fallback: PDF has no selectable text (scanned PDF). Run Tesseract OCR on rendered page canvases!
+      console.log('PDF has no selectable text. Falling back to page-by-page OCR rendering...');
+      if (onProgress) onProgress(0.4);
+
+      const worker = await createWorker('eng');
+      let ocrText = '';
+      
+      for (let i = 1; i <= numPages; i++) {
+        if (onProgress) {
+          onProgress(0.4 + (i / numPages) * 0.5);
+        }
+        
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 1.5 }); // Scale 1.5 balances speed & resolution for OCR
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) continue;
+        
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        await page.render({
+          canvasContext: context,
+          viewport: viewport
+        }).promise;
+        
+        // Convert canvas to image and recognize text
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const { data: { text } } = await worker.recognize(dataUrl);
+        ocrText += text + '\n';
+      }
+      
+      await worker.terminate();
       if (onProgress) onProgress(1.0);
       
-      const trimmedText = fullText.trim();
-      return trimmedText || 'This PDF has no selectable text (it might be scanned).';
+      return ocrText.trim() || 'No text could be extracted from this PDF.';
     } catch (error) {
       console.error('Failed to parse PDF:', error);
       throw new Error(error instanceof Error ? error.message : 'Failed to extract text from PDF');
     }
   }
 
-  // Tesseract.js client-side worker
+  // Tesseract.js client-side worker for image uploads
   const worker = await createWorker('eng');
   
   try {
@@ -82,7 +121,9 @@ export async function extractTextFromDocument(
     await worker.terminate();
     return text || 'No text could be extracted from this image.';
   } catch (error) {
-    await worker.terminate();
+    try {
+      await worker.terminate();
+    } catch (_) {}
     throw error;
   }
 }
