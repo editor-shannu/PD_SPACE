@@ -49,6 +49,51 @@ export default function FacilityLocatorPage() {
   // Store last fetched coordinates to avoid double-fetching for tiny GPS jitter
   const lastFetchedCoords = useRef<{ lat: number; lng: number } | null>(null);
 
+  // Helper to fetch IP-based location as a fallback if browser GPS fails/is denied
+  const fetchIPLocation = async () => {
+    try {
+      const res = await fetch('https://ipapi.co/json/');
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+          return { lat: data.latitude, lng: data.longitude };
+        }
+      }
+    } catch (e) {
+      console.warn('ipapi.co failed, trying fallback...');
+    }
+
+    try {
+      const res = await fetch('https://freeipapi.com/api/json');
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+          return { lat: data.latitude, lng: data.longitude };
+        }
+      }
+    } catch (e) {
+      console.warn('freeipapi.com failed');
+    }
+
+    return null;
+  };
+
+  // Helper: calculate distance in km on client
+  const getClientDistance = (facLat: number, facLng: number, currentLat: number | null = lat, currentLng: number | null = lng) => {
+    if (currentLat === null || currentLng === null) return 99999;
+    const R = 6371; // km
+    const dLat = ((facLat - currentLat) * Math.PI) / 180;
+    const dLon = ((facLng - currentLng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((currentLat * Math.PI) / 180) *
+        Math.cos((facLat * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return parseFloat((R * c).toFixed(1));
+  };
+
   // Fetch facilities based on current lat/lng
   const fetchFacilities = async (currentLat: number, currentLng: number) => {
     // Only fetch if coordinates changed significantly (e.g. > 50 meters or approx 0.0005 degrees)
@@ -68,8 +113,20 @@ export default function FacilityLocatorPage() {
         if (data.success && Array.isArray(data.facilities)) {
           setFacilities(data.facilities);
           lastFetchedCoords.current = { lat: currentLat, lng: currentLng };
-          if (data.facilities.length > 0) {
-            setSelectedFacility(data.facilities[0]);
+          
+          // Pre-calculate distance client-side to find the closest one correctly
+          const sorted = data.facilities
+            .map((fac: any) => ({
+              ...fac,
+              distance: getClientDistance(fac.lat, fac.lng, currentLat, currentLng),
+            }))
+            .filter((fac: any) => fac.distance <= 50) // only select facilities within 50km
+            .sort((a: any, b: any) => a.distance - b.distance);
+
+          if (sorted.length > 0) {
+            setSelectedFacility(sorted[0]);
+          } else {
+            setSelectedFacility(null);
           }
         }
       }
@@ -82,55 +139,82 @@ export default function FacilityLocatorPage() {
 
   // Get user geolocation on mount and continuously watch position
   useEffect(() => {
+    let watchId: number | null = null;
+    let isActive = true;
+
+    const handleLocationSuccess = (position: GeolocationPosition) => {
+      if (!isActive) return;
+      const uLat = position.coords.latitude;
+      const uLng = position.coords.longitude;
+      setLat(uLat);
+      setLng(uLng);
+      setLocationStatus('granted');
+      fetchFacilities(uLat, uLng);
+    };
+
+    const handleLocationError = async (error: GeolocationPositionError) => {
+      if (!isActive) return;
+      console.warn('Browser geolocation failed or timed out:', error.message);
+      
+      // Fallback to IP-based geolocation
+      const ipLocation = await fetchIPLocation();
+      if (!isActive) return;
+      
+      if (ipLocation) {
+        console.log(`Using IP-based coordinates as fallback: ${ipLocation.lat}, ${ipLocation.lng}`);
+        setLat(ipLocation.lat);
+        setLng(ipLocation.lng);
+        setLocationStatus('denied'); // Mark as denied/coarse warning but load coordinates
+        fetchFacilities(ipLocation.lat, ipLocation.lng);
+      } else {
+        // Final fallback to Bangalore
+        console.log('Using default Bangalore coordinates as fallback.');
+        const defaultLat = 12.9716;
+        const defaultLng = 77.5946;
+        setLat(defaultLat);
+        setLng(defaultLng);
+        setLocationStatus('denied');
+        fetchFacilities(defaultLat, defaultLng);
+      }
+    };
+
     if (typeof window === 'undefined' || !navigator.geolocation) {
-      setLocationStatus('denied');
-      const defaultLat = 12.9716;
-      const defaultLng = 77.5946;
-      setLat(defaultLat);
-      setLng(defaultLng);
-      fetchFacilities(defaultLat, defaultLng);
+      handleLocationError({
+        code: 0,
+        message: 'Geolocation not supported',
+        PERMISSION_DENIED: 1,
+        POSITION_UNAVAILABLE: 2,
+        TIMEOUT: 3
+      } as any);
       return;
     }
 
-    let watchId: number | null = null;
-
-    const startWatching = (highAccuracy: boolean) => {
-      watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const uLat = position.coords.latitude;
-          const uLng = position.coords.longitude;
-          setLat(uLat);
-          setLng(uLng);
-          setLocationStatus('granted');
-          fetchFacilities(uLat, uLng);
-        },
-        (error) => {
-          console.warn(`Geolocation watch error (highAccuracy=${highAccuracy}):`, error);
-          if (highAccuracy) {
-            // If high accuracy failed (common on desktops/WiFi), fallback to low accuracy
-            console.log('Retrying location tracking with low accuracy fallback...');
-            if (watchId !== null) {
-              navigator.geolocation.clearWatch(watchId);
-            }
-            startWatching(false);
-          } else {
-            setLocationStatus('denied');
-            const defaultLat = 12.9716;
-            const defaultLng = 77.5946;
-            setLat(defaultLat);
-            setLng(defaultLng);
-            fetchFacilities(defaultLat, defaultLng);
-          }
-        },
-        { enableHighAccuracy: highAccuracy, timeout: 8000, maximumAge: 10000 }
-      );
-    };
-
-    // Begin watching with high accuracy first
-    startWatching(true);
+    // Try to get current position immediately with high accuracy and a 5-second timeout
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        handleLocationSuccess(position);
+        
+        // Start watching for changes in the background
+        watchId = navigator.geolocation.watchPosition(
+          handleLocationSuccess,
+          (err) => console.warn('Watch position error:', err),
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        );
+      },
+      (err) => {
+        // If high accuracy fails or times out, try low accuracy once
+        navigator.geolocation.getCurrentPosition(
+          handleLocationSuccess,
+          handleLocationError,
+          { enableHighAccuracy: false, timeout: 8000 }
+        );
+      },
+      { enableHighAccuracy: true, timeout: 5000 }
+    );
 
     return () => {
-      if (watchId !== null) {
+      isActive = false;
+      if (watchId !== null && navigator.geolocation) {
         navigator.geolocation.clearWatch(watchId);
       }
     };
@@ -146,10 +230,20 @@ export default function FacilityLocatorPage() {
     );
   }
 
-  const filteredFacilities = facilities.filter((fac) => {
-    if (activeFilter === 'all') return true;
-    return fac.type === activeFilter;
-  });
+  // Filter facilities by active tab type and client-side distance (within 50km)
+  const processedFacilities = facilities
+    .map((fac) => ({
+      ...fac,
+      distance: getClientDistance(fac.lat, fac.lng),
+    }))
+    .filter((fac) => {
+      // Strict 50km radius check from the device location
+      if (fac.distance > 50) return false;
+      
+      if (activeFilter === 'all') return true;
+      return fac.type === activeFilter;
+    })
+    .sort((a, b) => a.distance - b.distance);
 
   const getEmoji = (type: string) => {
     if (type === 'hospital') return '🏥';
@@ -193,7 +287,7 @@ export default function FacilityLocatorPage() {
 
       {/* Filter Tabs & Mobile View Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-2">
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {(['all', 'hospital', 'clinic', 'pharmacy', 'diagnostic'] as const).map((filter) => (
             <button
               key={filter}
@@ -207,6 +301,18 @@ export default function FacilityLocatorPage() {
               {filter === 'all' ? 'Show All' : `${getEmoji(filter)} ${filter}s`}
             </button>
           ))}
+          <button
+            onClick={() => {
+              lastFetchedCoords.current = null;
+              if (lat !== null && lng !== null) {
+                fetchFacilities(lat, lng);
+              }
+            }}
+            className="px-4 py-2 text-xs font-bold rounded-full bg-white text-[#2ab8d8] border border-gray-200 hover:bg-gray-50 transition-all shadow-sm flex items-center gap-1.5"
+            title="Refresh current location and search again"
+          >
+            🔄 Refresh
+          </button>
         </div>
 
         {/* Mobile View Switcher */}
@@ -243,14 +349,14 @@ export default function FacilityLocatorPage() {
               <div className="h-10 w-10 border-4 border-[#2ab8d8]/30 border-t-[#2ab8d8] rounded-full animate-spin" />
               <p className="text-gray-400 text-xs font-semibold animate-pulse">Scanning nearby medical centers...</p>
             </div>
-          ) : filteredFacilities.length === 0 ? (
+          ) : processedFacilities.length === 0 ? (
             <div className="bg-white/60 border border-gray-200 rounded-3xl p-10 text-center shadow-sm">
               <p className="text-3xl mb-3">📍</p>
               <h3 className="font-bold text-gray-800 text-sm">No facilities found</h3>
               <p className="text-gray-400 text-xs mt-1">Try simulating another location or changing filters.</p>
             </div>
           ) : (
-            filteredFacilities.map((fac) => {
+            processedFacilities.map((fac: Facility) => {
               const isSelected = selectedFacility?.id === fac.id;
               return (
                 <div
@@ -324,7 +430,7 @@ export default function FacilityLocatorPage() {
             <FacilityMap
               userLat={lat}
               userLng={lng}
-              facilities={filteredFacilities}
+              facilities={processedFacilities}
               selectedFacility={selectedFacility}
               onSelectFacility={(fac) => setSelectedFacility(fac)}
             />

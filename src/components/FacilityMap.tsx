@@ -32,6 +32,7 @@ export const FacilityMap: React.FC<FacilityMapProps> = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const markersRef = useRef<{ [key: string]: any }>({});
+  const lastCenteredCoords = useRef<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !mapRef.current) return;
@@ -59,6 +60,18 @@ export const FacilityMap: React.FC<FacilityMapProps> = ({
         }).addTo(mapInstance.current);
 
         L.control.zoom({ position: 'topright' }).addTo(mapInstance.current);
+        
+        lastCenteredCoords.current = { lat: userLat, lng: userLng };
+      } else {
+        // If map already exists, check if user coordinates updated significantly
+        const hasMovedSignificantly = !lastCenteredCoords.current ||
+          Math.abs(lastCenteredCoords.current.lat - userLat) > 0.001 ||
+          Math.abs(lastCenteredCoords.current.lng - userLng) > 0.001;
+
+        if (hasMovedSignificantly) {
+          mapInstance.current.setView([userLat, userLng], 14);
+          lastCenteredCoords.current = { lat: userLat, lng: userLng };
+        }
       }
 
       // Refresh markers
@@ -145,9 +158,25 @@ export const FacilityMap: React.FC<FacilityMapProps> = ({
     }
   }, [selectedFacility]);
 
+  const handleRecenter = () => {
+    if (mapInstance.current) {
+      mapInstance.current.setView([userLat, userLng], 14);
+      lastCenteredCoords.current = { lat: userLat, lng: userLng };
+    }
+  };
+
   return (
     <div className="w-full h-full relative rounded-3xl overflow-hidden border border-white shadow-inner bg-slate-50">
       <div ref={mapRef} className="w-full h-full min-h-[350px] md:min-h-[500px] z-10" />
+      
+      {/* Recenter Button */}
+      <button
+        onClick={handleRecenter}
+        className="absolute bottom-4 right-4 z-[400] px-3.5 py-2.5 bg-white hover:bg-gray-50 border border-gray-200 rounded-2xl shadow-lg transition-all duration-200 text-gray-700 hover:text-[#003893] flex items-center justify-center gap-1.5 text-xs font-bold"
+        title="Recenter on my location"
+      >
+        <span className="text-sm">🎯</span> Recenter
+      </button>
     </div>
   );
 };
