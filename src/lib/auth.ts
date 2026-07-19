@@ -12,6 +12,7 @@ export interface SessionUser extends NextAuthUser {
   email: string;
   name: string;
   image?: string;
+  role?: 'patient' | 'doctor' | 'admin';
 }
 
 export const authOptions: NextAuthOptions = {
@@ -23,6 +24,7 @@ export const authOptions: NextAuthOptions = {
         name:     { label: 'Name',     type: 'text' },
         image:    { label: 'Image',    type: 'text' },
         uid:      { label: 'UID',      type: 'text' },
+        role:     { label: 'Role',     type: 'text' },
       },
       async authorize(credentials) {
         // Require at minimum an email from Firebase
@@ -33,17 +35,26 @@ export const authOptions: NextAuthOptions = {
         const email = credentials.email.trim().toLowerCase();
         const name  = credentials.name  || email.split('@')[0];
         const image = credentials.image || null;
+        let requestedRole = credentials.role as 'patient' | 'doctor' | 'admin' | undefined;
+
+        if (!requestedRole && (email.includes('doctor') || email.includes('dr.') || name.toLowerCase().includes('dr.'))) {
+          requestedRole = 'doctor';
+        }
+
+        const isAdminEmail = email === 'medisettyyshanmukha@gmail.com' || email.includes('admin');
+        const targetRole = isAdminEmail ? 'admin' : (requestedRole || 'patient');
 
         try {
           await connectDB();
 
           // Upsert: find or create user record in MongoDB
           let user = await UserModel.findOne({ email });
-          const isAdminEmail = email === 'medisettyyshanmukha@gmail.com' || email.includes('admin');
-          const targetRole = isAdminEmail ? 'admin' : 'patient';
-
           if (!user) {
-            user = new UserModel({ email, name, role: targetRole });
+            user = new UserModel({
+              email,
+              name,
+              role: targetRole,
+            });
             await user.save();
           } else {
             let updated = false;
@@ -51,7 +62,10 @@ export const authOptions: NextAuthOptions = {
               user.name = name;
               updated = true;
             }
-            // Auto promote target email to admin
+            if (requestedRole && user.role !== requestedRole) {
+              user.role = requestedRole;
+              updated = true;
+            }
             if (isAdminEmail && user.role !== 'admin') {
               user.role = 'admin';
               updated = true;
@@ -67,7 +81,7 @@ export const authOptions: NextAuthOptions = {
             name,
             image,
             role:  user.role || 'patient',
-          } as any;
+          } as SessionUser;
         } catch (error: any) {
           console.error('MediFlow auth error:', error);
           throw new Error(`Authentication failed — ${error.message || 'database error'}`);
@@ -88,6 +102,7 @@ export const authOptions: NextAuthOptions = {
         token.email   = user.email;
         token.name    = user.name;
         token.picture = user.image;
+        token.role    = (user as SessionUser).role || 'patient';
       }
       return token;
     },
@@ -97,6 +112,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).email = token.email   as string;
         (session.user as any).name  = token.name    as string;
         (session.user as any).image = token.picture as string;
+        (session.user as any).role  = (token.role   as string) || 'patient';
       }
       return session;
     },
