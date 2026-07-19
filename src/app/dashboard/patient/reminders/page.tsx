@@ -11,7 +11,7 @@ type Bucket = 'today' | 'week' | 'upcoming';
 
 interface Reminder {
   id: string;
-  type: 'followup' | 'medication';
+  type: 'followup' | 'medication' | 'appointment';
   title: string;
   subtitle: string;
   date?: Date;
@@ -35,40 +35,65 @@ export default function RemindersPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/documents');
-        if (!res.ok) return;
-        const data = await res.json();
-        const docs: Document[] = data.documents || [];
+        const [docsRes, appsRes] = await Promise.all([
+          fetch('/api/documents'),
+          fetch('/api/appointments'),
+        ]);
+
         const items: Reminder[] = [];
 
-        docs.forEach((doc) => {
-          if (doc.extractedData?.follow_up_date) {
-            const date = new Date(doc.extractedData.follow_up_date);
-            if (date > new Date(Date.now() - 86400000)) {
-              items.push({
-                id: `followup-${doc._id}`,
-                type: 'followup',
-                title: `Follow-up: ${doc.extractedData.doctor_name || 'Doctor'}`,
-                subtitle: doc.extractedData.diagnosis ? `Re: ${doc.extractedData.diagnosis}` : doc.fileName,
-                date,
-                bucket: getBucket(date),
-                accentColor: '#10b981',
-              });
+        if (docsRes.ok) {
+          const docsData = await docsRes.json();
+          const docs: Document[] = docsData.documents || [];
+          docs.forEach((doc) => {
+            if (doc.extractedData?.follow_up_date) {
+              const date = new Date(doc.extractedData.follow_up_date);
+              if (date > new Date(Date.now() - 86400000)) {
+                items.push({
+                  id: `followup-${doc._id}`,
+                  type: 'followup',
+                  title: `Follow-up: ${doc.extractedData.doctor_name || 'Doctor'}`,
+                  subtitle: doc.extractedData.diagnosis ? `Re: ${doc.extractedData.diagnosis}` : doc.fileName,
+                  date,
+                  bucket: getBucket(date),
+                  accentColor: '#10b981',
+                });
+              }
             }
-          }
-          doc.extractedData?.medications?.forEach((med, i) => {
-            if (med.name) {
-              items.push({
-                id: `med-${doc._id}-${i}`,
-                type: 'medication',
-                title: med.name,
-                subtitle: [med.dosage, med.frequency].filter(Boolean).join(' · ') || 'Active medication',
-                bucket: 'today',
-                accentColor: '#6366f1',
-              });
-            }
+            doc.extractedData?.medications?.forEach((med, i) => {
+              if (med.name) {
+                items.push({
+                  id: `med-${doc._id}-${i}`,
+                  type: 'medication',
+                  title: med.name,
+                  subtitle: [med.dosage, med.frequency].filter(Boolean).join(' · ') || 'Active medication',
+                  bucket: 'today',
+                  accentColor: '#6366f1',
+                });
+              }
+            });
           });
-        });
+        }
+
+        if (appsRes.ok) {
+          const appsData = await appsRes.json();
+          const appointments = appsData.appointments || [];
+          appointments.forEach((app: any) => {
+            let date = new Date(app.date);
+            if (isNaN(date.getTime())) {
+              date = new Date();
+            }
+            items.push({
+              id: `appointment-${app._id || app.id}`,
+              type: 'appointment',
+              title: `Appointment: ${app.doctorName}`,
+              subtitle: `${app.department} Department · Status: ${app.status}`,
+              date,
+              bucket: getBucket(date),
+              accentColor: '#2ab8d8',
+            });
+          });
+        }
 
         const order: Bucket[] = ['today', 'week', 'upcoming'];
         items.sort((a, b) => {
@@ -79,6 +104,8 @@ export default function RemindersPage() {
         });
 
         setReminders(items);
+      } catch (err) {
+        console.error('Error fetching reminders:', err);
       } finally {
         setIsLoading(false);
       }
@@ -96,7 +123,7 @@ export default function RemindersPage() {
       {/* Header */}
       <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-sm">
         <h1 className="text-2xl font-black text-[#003893]">Reminders</h1>
-        <p className="text-gray-400 text-sm mt-1">Follow-up dates and medication schedules.</p>
+        <p className="text-gray-400 text-sm mt-1">Follow-up dates, appointments, and medication schedules.</p>
       </div>
 
       {isLoading ? (
@@ -109,7 +136,7 @@ export default function RemindersPage() {
         <div className="bg-white/60 backdrop-blur-xl border border-dashed border-gray-200 rounded-3xl p-14 text-center shadow-sm">
           <p className="text-4xl mb-4">🎉</p>
           <p className="text-[#003893] font-bold text-base">All clear!</p>
-          <p className="text-gray-400 text-sm mt-1">No upcoming reminders.</p>
+          <p className="text-gray-400 text-sm mt-1">No upcoming reminders or appointments.</p>
         </div>
       ) : (
         buckets.map(({ key, label, emoji }) => {
@@ -136,6 +163,8 @@ export default function RemindersPage() {
                         <svg className="h-5 w-5" style={{ color: r.accentColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
+                      ) : r.type === 'appointment' ? (
+                        <span className="text-base">🩺</span>
                       ) : (
                         <svg className="h-5 w-5" style={{ color: r.accentColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
