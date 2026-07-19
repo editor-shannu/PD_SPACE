@@ -39,12 +39,26 @@ export const authOptions: NextAuthOptions = {
 
           // Upsert: find or create user record in MongoDB
           let user = await UserModel.findOne({ email });
+          const isAdminEmail = email === 'medisettyyshanmukha@gmail.com' || email.includes('admin');
+          const targetRole = isAdminEmail ? 'admin' : 'patient';
+
           if (!user) {
-            user = new UserModel({ email, name });
+            user = new UserModel({ email, name, role: targetRole });
             await user.save();
-          } else if (user.name !== name) {
-            user.name = name;
-            await user.save();
+          } else {
+            let updated = false;
+            if (user.name !== name) {
+              user.name = name;
+              updated = true;
+            }
+            // Auto promote target email to admin
+            if (isAdminEmail && user.role !== 'admin') {
+              user.role = 'admin';
+              updated = true;
+            }
+            if (updated) {
+              await user.save();
+            }
           }
 
           return {
@@ -52,7 +66,8 @@ export const authOptions: NextAuthOptions = {
             email,
             name,
             image,
-          };
+            role:  user.role || 'patient',
+          } as any;
         } catch (error: any) {
           console.error('MediFlow auth error:', error);
           throw new Error(`Authentication failed — ${error.message || 'database error'}`);
