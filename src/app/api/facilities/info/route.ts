@@ -104,7 +104,7 @@ Rules:
 - Be specific to THIS facility's name — do not write a generic template
 - Plain text only, no bullet points, no asterisks`;
 
-      for (const model of ['gemini-1.5-flash', 'gemini-1.5-pro']) {
+      for (const model of ['gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-flash-latest']) {
         const text = await callGemini(geminiKey, model, prompt);
         if (text) return text;
       }
