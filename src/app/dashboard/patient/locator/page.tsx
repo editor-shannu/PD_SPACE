@@ -420,17 +420,18 @@ export default function FacilityLocatorPage() {
                     </span>
                   </div>
 
-                  {/* Expanded: AI Summary + Call */}
+                  {/* Expanded: AI Summary + Navigation + Call */}
                   {isSelected && (
                     <div
                       className="mt-4 pt-3 border-t border-gray-100/60 space-y-3"
                       onClick={(e) => e.stopPropagation()}
                     >
+                      {/* AI Overview */}
                       <div className="bg-sky-50/50 border border-sky-100/60 rounded-2xl p-4 text-xs">
                         <h4 className="font-extrabold text-[#003893] flex items-center gap-1.5 mb-2 uppercase tracking-wide text-[10px]">
                           ✨ AI Overview
                         </h4>
-                        {facilityDetails[fac.id]?.loading ? (
+                        {facilityDetails[fac.id]?.loading !== false ? (
                           <div className="space-y-1.5 animate-pulse">
                             <div className="h-3 bg-sky-200/50 rounded w-full" />
                             <div className="h-3 bg-sky-200/50 rounded w-11/12" />
@@ -438,15 +439,41 @@ export default function FacilityLocatorPage() {
                           </div>
                         ) : (
                           <p className="text-gray-600 font-medium leading-relaxed">
-                            {facilityDetails[fac.id]?.summary || 'Loading overview...'}
+                            {facilityDetails[fac.id]?.summary}
                           </p>
                         )}
                       </div>
 
+                      {/* Navigation Buttons */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Get Directions — opens native device maps app */}
+                        <a
+                          href={`geo:${fac.lat},${fac.lng}?q=${fac.lat},${fac.lng}(${encodeURIComponent(fac.name)})`}
+                          className="flex flex-col items-center justify-center gap-1 py-3 px-2 bg-[#003893] hover:bg-[#0c4091] text-white rounded-2xl text-[10px] font-bold transition shadow-sm text-center"
+                          title="Open in device maps app"
+                        >
+                          <span className="text-base">🧭</span>
+                          Get Directions
+                        </a>
+
+                        {/* Open in Google Maps */}
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${fac.lat},${fac.lng}&destination_place_id=${fac.id.startsWith('google-') || fac.id.startsWith('osm-') ? '' : fac.id}&travelmode=driving`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex flex-col items-center justify-center gap-1 py-3 px-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-2xl text-[10px] font-bold transition shadow-sm text-center"
+                          title="Open route in Google Maps"
+                        >
+                          <span className="text-base">🗺️</span>
+                          Open in Maps
+                        </a>
+                      </div>
+
+                      {/* Call */}
                       {fac.phone && (
                         <a
                           href={`tel:${fac.phone}`}
-                          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-[#003893] hover:bg-[#0c4091] text-white rounded-2xl text-xs font-bold transition shadow-sm"
+                          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition shadow-sm"
                         >
                           📞 Call Facility &nbsp;·&nbsp; {fac.phone}
                         </a>
