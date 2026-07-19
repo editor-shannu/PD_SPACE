@@ -11,6 +11,7 @@ import { connectDB } from '@/lib/db';
 import { DocumentModel } from '@/models/document';
 import { ExtractedDataSchema } from '@/lib/validation';
 import { Document } from '@/types/documents';
+import { generateAlertsForPatient } from '@/lib/alertEngine';
 import { z } from 'zod';
 
 interface ConfirmRequest {
@@ -97,6 +98,11 @@ export async function POST(req: NextRequest): Promise<NextResponse<ConfirmRespon
     const savedDocument = newDocument.toObject() as Document;
     savedDocument._id = newDocument._id.toString();
 
+    // Trigger background alert generation service (duplicate/conflict/missed follow-up engine)
+    generateAlertsForPatient(patientId, newDocument._id.toString()).catch((err) => {
+      console.error('Background alert generation failed:', err);
+    });
+
     return NextResponse.json(
       {
         success: true,
@@ -117,3 +123,4 @@ export async function POST(req: NextRequest): Promise<NextResponse<ConfirmRespon
     );
   }
 }
+
