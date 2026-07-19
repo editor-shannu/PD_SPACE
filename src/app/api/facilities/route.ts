@@ -204,7 +204,7 @@ export async function GET(req: NextRequest) {
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), 5000);
         const res = await fetch(
-          `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=20000&keyword=hospital|clinic|pharmacy|medical&key=${googleKey}`,
+          `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=30000&keyword=hospital|clinic|pharmacy|medical&key=${googleKey}`,
           { signal: controller.signal }
         );
         clearTimeout(tid);
@@ -238,13 +238,13 @@ export async function GET(req: NextRequest) {
       } catch { /* fall through to OSM */ }
     }
 
-    // ── 2. OpenStreetMap Overpass — cascade: 20km → 50km ─────────────────────
-    // Start at 20km (realistic for rural India)
+    // ── 2. OpenStreetMap Overpass — cascade: 15km → 30km ─────────────────────
+    // Start at 15km (realistic for close hospitals), then go up to 30km
     if (facilities.length === 0) {
-      facilities = (await raceOverpass(lat, lng, 20000, 10000)) ?? [];
+      facilities = (await raceOverpass(lat, lng, 15000, 10000)) ?? [];
     }
     if (facilities.length === 0) {
-      facilities = (await raceOverpass(lat, lng, 50000, 12000)) ?? [];
+      facilities = (await raceOverpass(lat, lng, 30000, 12000)) ?? [];
     }
 
     // ── 3. Nominatim fallback (entirely different API — works when Overpass rate-limits) ──
@@ -270,7 +270,7 @@ export async function GET(req: NextRequest) {
                 const iLat = parseFloat(item.lat);
                 const iLng = parseFloat(item.lon);
                 const dist = haversine(lat, lng, iLat, iLng);
-                if (dist > 50) continue;
+                if (dist > 30) continue;
                 const name = item.namedetails?.name || item.display_name?.split(',')[0] || '';
                 if (!name) continue;
                 nominatimResults.push({
@@ -291,9 +291,9 @@ export async function GET(req: NextRequest) {
       } catch { /* all attempts exhausted */ }
     }
 
-    // Filter to 50km and sort
+    // Filter to 30km and sort
     facilities = facilities
-      .filter((f) => (f.distance ?? 999) <= 50)
+      .filter((f) => (f.distance ?? 999) <= 30)
       .sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
 
     // ── Cache and return ──────────────────────────────────────────────────────

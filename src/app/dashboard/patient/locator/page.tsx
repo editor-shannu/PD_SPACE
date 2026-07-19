@@ -107,11 +107,11 @@ export default function FacilityLocatorPage() {
           distance: haversine(currentLat, currentLng, fac.lat, fac.lng),
         }));
 
-        const within50 = enriched.filter((f) => (f.distance ?? 999) <= 50);
-        within50.sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
+        const within30 = enriched.filter((f) => (f.distance ?? 999) <= 30);
+        within30.sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
 
-        setFacilities(within50);
-        if (within50.length > 0) setSelectedFacility(within50[0]);
+        setFacilities(within30);
+        if (within30.length > 0) setSelectedFacility(within30[0]);
         else setSelectedFacility(null);
       } else {
         setFacilities([]);
