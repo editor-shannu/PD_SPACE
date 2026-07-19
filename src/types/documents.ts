@@ -6,7 +6,7 @@ export interface User {
   id?: string;
   email: string;
   name: string;
-  role?: string;
+  role?: 'patient' | 'doctor' | 'admin';
   createdAt?: Date;
   updatedAt?: Date;
 }
