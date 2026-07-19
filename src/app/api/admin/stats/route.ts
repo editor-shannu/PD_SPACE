@@ -8,6 +8,7 @@ import { AppointmentModel } from '@/models/appointment';
 
 // Helper to generate seed data if needed
 async function seedDataIfNeeded() {
+  return;
   const patientCount = await UserModel.countDocuments({ role: 'patient' });
   const docCount = await DocumentModel.countDocuments();
   const appointmentCount = await AppointmentModel.countDocuments();
@@ -375,20 +376,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Forbidden: Admin access only' }, { status: 403 });
     }
 
-    // Check if seed query param is true or if DB is empty
-    const { searchParams } = new URL(req.url);
-    const forceSeed = searchParams.get('seed') === 'true';
 
-    // Seed data if needed
-    if (forceSeed) {
-      await seedDataIfNeeded();
-    } else {
-      // Run fallback check to see if we have enough records
-      const patientCount = await UserModel.countDocuments({ role: 'patient' });
-      if (patientCount === 0) {
-        await seedDataIfNeeded();
-      }
-    }
 
     // 2. Fetch all data for calculations
     const allUsers = await UserModel.find().lean();
@@ -524,7 +512,7 @@ Analyze the following aggregated metrics for our hospital:
 
 Provide a single, short paragraph (strictly under 75 words) summarizing operational performance. Highlight the primary department bottleneck and patient compliance concerns, offering a direct clinical workflow solution. Do not include markdown bolding, lists, titles, or code blocks.`;
 
-      const modelsToTry = ['gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+      const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro'];
       let geminiResponse: Response | null = null;
       let lastError: any = null;
 

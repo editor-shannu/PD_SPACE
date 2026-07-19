@@ -221,7 +221,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ExtractRespon
     const prompt = buildExtractionPrompt(raw_text, document_type_hint);
 
     // Try calling Gemini API with a fallback chain of models
-    const modelsToTry = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+    const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro'];
     let geminiResponse: Response | null = null;
     let lastError: any = null;
 

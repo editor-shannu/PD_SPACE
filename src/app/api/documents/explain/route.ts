@@ -63,7 +63,7 @@ ${structuredDataStr}
 
 Please explain it clearly in ${language}:`;
 
-    const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash'];
+    const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro'];
     let geminiResponse: Response | null = null;
     let lastError: any = null;
 

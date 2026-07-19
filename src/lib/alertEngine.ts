@@ -40,7 +40,7 @@ Provide your assessment in plain-language reasoning. You MUST return ONLY a raw 
 
 If no duplicates or conflicts are found, return: { "alerts": [] }`;
 
-  const modelsToTry = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+  const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro'];
 
   for (const model of modelsToTry) {
     try {

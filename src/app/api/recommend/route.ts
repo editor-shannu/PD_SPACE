@@ -73,7 +73,7 @@ You must return a raw JSON object (and nothing else, no markdown codeblocks or p
 
 Ensure the output is valid JSON.`;
 
-    const modelsToTry = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+    const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro'];
     let geminiResponse: Response | null = null;
     let lastError: any = null;
 
