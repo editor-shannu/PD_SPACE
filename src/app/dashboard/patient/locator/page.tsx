@@ -62,9 +62,9 @@ export default function FacilityLocatorPage() {
   // Mobile UI toggle
   const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
 
-  // AI summary cache keyed by facility id
+  // AI summary + phone cache keyed by facility id
   const [facilityDetails, setFacilityDetails] = useState<{
-    [id: string]: { summary: string; loading: boolean };
+    [id: string]: { summary: string; phone?: string | null; loading: boolean };
   }>({});
   const loadedDetailIds = useRef<Set<string>>(new Set());
 
@@ -230,17 +230,21 @@ export default function FacilityLocatorPage() {
           )}&type=${selectedFacility.type}`
         );
         const data = res.ok ? await res.json() : null;
+        const summary = data?.success && data.summary
+          ? data.summary
+          : `${selectedFacility.name} provides medical services in ${selectedFacility.address || 'the local area'}. Contact the facility directly for specialist and appointment information.`;
         setFacilityDetails((prev) => ({
           ...prev,
           [id]: {
-            summary: data?.success && data.summary ? data.summary : 'No overview available for this facility.',
+            summary,
+            phone: data?.phone ?? null,   // Google Places phone (may be null)
             loading: false,
           },
         }));
       } catch {
         setFacilityDetails((prev) => ({
           ...prev,
-          [id]: { summary: 'Failed to load facility info.', loading: false },
+          [id]: { summary: 'Could not load facility overview.', phone: null, loading: false },
         }));
       }
     })();
@@ -444,40 +448,41 @@ export default function FacilityLocatorPage() {
                         )}
                       </div>
 
-                      {/* Navigation Buttons */}
-                      <div className="grid grid-cols-2 gap-2">
-                        {/* Get Directions — opens native device maps app */}
-                        <a
-                          href={`geo:${fac.lat},${fac.lng}?q=${fac.lat},${fac.lng}(${encodeURIComponent(fac.name)})`}
-                          className="flex flex-col items-center justify-center gap-1 py-3 px-2 bg-[#003893] hover:bg-[#0c4091] text-white rounded-2xl text-[10px] font-bold transition shadow-sm text-center"
-                          title="Open in device maps app"
-                        >
-                          <span className="text-base">🧭</span>
-                          Get Directions
-                        </a>
+                      {/* Open in Google Maps (directions) */}
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${fac.lat},${fac.lng}&travelmode=driving`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-[#003893] hover:bg-[#0c4091] text-white rounded-2xl text-xs font-bold transition shadow-sm"
+                      >
+                        🗺️ Get Directions in Google Maps
+                      </a>
 
-                        {/* Open in Google Maps */}
-                        <a
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${fac.lat},${fac.lng}&destination_place_id=${fac.id.startsWith('google-') || fac.id.startsWith('osm-') ? '' : fac.id}&travelmode=driving`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex flex-col items-center justify-center gap-1 py-3 px-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-2xl text-[10px] font-bold transition shadow-sm text-center"
-                          title="Open route in Google Maps"
-                        >
-                          <span className="text-base">🗺️</span>
-                          Open in Maps
-                        </a>
-                      </div>
-
-                      {/* Call */}
-                      {fac.phone && (
-                        <a
-                          href={`tel:${fac.phone}`}
-                          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition shadow-sm"
-                        >
-                          📞 Call Facility &nbsp;·&nbsp; {fac.phone}
-                        </a>
-                      )}
+                      {/* Call — show Google Places phone (from info API) if available, fallback to OSM phone */}
+                      {(() => {
+                        const phone = facilityDetails[fac.id]?.phone || fac.phone;
+                        if (facilityDetails[fac.id]?.loading !== false) {
+                          // Still loading: show skeleton call button
+                          return (
+                            <div className="h-10 bg-emerald-100/60 rounded-2xl animate-pulse" />
+                          );
+                        }
+                        if (phone) {
+                          return (
+                            <a
+                              href={`tel:${phone}`}
+                              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition shadow-sm"
+                            >
+                              📞 Call &nbsp;·&nbsp; {phone}
+                            </a>
+                          );
+                        }
+                        return (
+                          <p className="text-center text-[10px] text-gray-400 font-semibold py-1">
+                            No phone number found for this facility
+                          </p>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
