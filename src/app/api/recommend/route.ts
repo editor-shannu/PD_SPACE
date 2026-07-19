@@ -129,26 +129,75 @@ Ensure the output is valid JSON.`;
       return NextResponse.json({ success: false, error: 'Received empty recommendation' }, { status: 502 });
     }
 
-    // Clean markdown wrappers if any
-    text = text.trim();
-    if (text.startsWith('```')) {
-      text = text.replace(/^```(json)?/, '').replace(/```$/, '').trim();
+    let parsedRecommendation: any = null;
+    let parseSuccess = false;
+
+    // Clean text of common markdown wrappers
+    let cleanedText = text.trim();
+    if (cleanedText.startsWith('```')) {
+      cleanedText = cleanedText.replace(/^```(json)?/i, '').replace(/```$/, '').trim();
     }
 
+    // Try parsing clean text
     try {
-      const parsedRecommendation = JSON.parse(text);
-      return NextResponse.json({
-        success: true,
-        recommendation: {
-          recommended_department: parsedRecommendation.recommended_department || 'General Medicine',
-          urgency_level: parsedRecommendation.urgency_level || 'routine',
-          reasoning: parsedRecommendation.reasoning || 'Based on symptoms and patient history.',
-        },
-      });
-    } catch (parseError) {
-      console.error('Failed to parse Gemini JSON:', text, parseError);
-      return NextResponse.json({ success: false, error: 'Failed to parse AI response' }, { status: 502 });
+      parsedRecommendation = JSON.parse(cleanedText);
+      parseSuccess = true;
+    } catch (e) {
+      // Try extracting content between first '{' and last '}'
+      const firstBrace = cleanedText.indexOf('{');
+      const lastBrace = cleanedText.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        try {
+          parsedRecommendation = JSON.parse(cleanedText.substring(firstBrace, lastBrace + 1));
+          parseSuccess = true;
+        } catch (subError) {
+          console.warn('JSON substring parsing failed:', subError);
+        }
+      }
     }
+
+    if (!parseSuccess) {
+      // Ultimate fallback: regex extraction
+      console.warn('Regex extraction fallback triggered for text:', text);
+      const deptMatch = text.match(/"recommended_department"\s*:\s*"([^"]+)"/i) || text.match(/department\s*:\s*([^\n,]+)/i);
+      const urgencyMatch = text.match(/"urgency_level"\s*:\s*"(routine|soon|urgent)"/i) || text.match(/urgency\s*:\s*(routine|soon|urgent)/i);
+      const reasoningMatch = text.match(/"reasoning"\s*:\s*"([^"]+)"/i) || text.match(/reasoning\s*:\s*([^\n]+)/i);
+
+      let recommended_department = deptMatch ? deptMatch[1].trim() : '';
+      let urgency_level = urgencyMatch ? urgencyMatch[1].trim() : 'routine';
+      let reasoning = reasoningMatch ? reasoningMatch[1].trim() : text;
+
+      // Clean up quotes or commas in regex matches
+      recommended_department = recommended_department.replace(/^["'\s]+|["'\s,]+$/g, '');
+      urgency_level = urgency_level.replace(/^["'\s]+|["'\s,]+$/g, '');
+      reasoning = reasoning.replace(/^["'\s]+|["'\s,]+$/g, '');
+
+      if (!recommended_department) {
+        // Look for common department names
+        const depts = ['Cardiology', 'Neurology', 'Pediatrics', 'Dermatology', 'General Medicine', 'Orthopedics', 'Infectious Diseases', 'Oncology', 'Gastroenterology', 'Psychiatry'];
+        for (const d of depts) {
+          if (new RegExp(d, 'i').test(text)) {
+            recommended_department = d;
+            break;
+          }
+        }
+      }
+
+      parsedRecommendation = {
+        recommended_department: recommended_department || 'General Medicine',
+        urgency_level: urgency_level || 'routine',
+        reasoning: reasoning || 'Based on symptoms analysis.',
+      };
+    }
+
+    return NextResponse.json({
+      success: true,
+      recommendation: {
+        recommended_department: parsedRecommendation.recommended_department || 'General Medicine',
+        urgency_level: parsedRecommendation.urgency_level || 'routine',
+        reasoning: parsedRecommendation.reasoning || 'Based on symptoms and patient history.',
+      },
+    });
   } catch (error) {
     console.error('Specialist recommendation error:', error);
     return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
