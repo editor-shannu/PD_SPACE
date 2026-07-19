@@ -157,37 +157,8 @@ Ensure the output is valid JSON.`;
     }
 
     if (!parseSuccess) {
-      // Ultimate fallback: regex extraction
-      console.warn('Regex extraction fallback triggered for text:', text);
-      const deptMatch = text.match(/"recommended_department"\s*:\s*"([^"]+)"/i) || text.match(/department\s*:\s*([^\n,]+)/i);
-      const urgencyMatch = text.match(/"urgency_level"\s*:\s*"(routine|soon|urgent)"/i) || text.match(/urgency\s*:\s*(routine|soon|urgent)/i);
-      const reasoningMatch = text.match(/"reasoning"\s*:\s*"([^"]+)"/i) || text.match(/reasoning\s*:\s*([^\n]+)/i);
-
-      let recommended_department = deptMatch ? deptMatch[1].trim() : '';
-      let urgency_level = urgencyMatch ? urgencyMatch[1].trim() : 'routine';
-      let reasoning = reasoningMatch ? reasoningMatch[1].trim() : text;
-
-      // Clean up quotes or commas in regex matches
-      recommended_department = recommended_department.replace(/^["'\s]+|["'\s,]+$/g, '');
-      urgency_level = urgency_level.replace(/^["'\s]+|["'\s,]+$/g, '');
-      reasoning = reasoning.replace(/^["'\s]+|["'\s,]+$/g, '');
-
-      if (!recommended_department) {
-        // Look for common department names
-        const depts = ['Cardiology', 'Neurology', 'Pediatrics', 'Dermatology', 'General Medicine', 'Orthopedics', 'Infectious Diseases', 'Oncology', 'Gastroenterology', 'Psychiatry'];
-        for (const d of depts) {
-          if (new RegExp(d, 'i').test(text)) {
-            recommended_department = d;
-            break;
-          }
-        }
-      }
-
-      parsedRecommendation = {
-        recommended_department: recommended_department || 'General Medicine',
-        urgency_level: urgency_level || 'routine',
-        reasoning: reasoning || 'Based on symptoms analysis.',
-      };
+      console.error('Failed to parse Gemini JSON:', text);
+      return NextResponse.json({ success: false, error: 'Failed to parse AI response' }, { status: 502 });
     }
 
     return NextResponse.json({

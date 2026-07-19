@@ -330,7 +330,7 @@ export default function PatientDashboard() {
                   {recommendation.reasoning}
                 </p>
                 <Link
-                  href={`/dashboard/patient/booking?facility=${encodeURIComponent(recommendation.recommended_department)}&type=clinic`}
+                  href={`/dashboard/patient/booking?facility=${encodeURIComponent(recommendation.recommended_department)}&type=clinic&symptoms=${encodeURIComponent(symptoms)}&urgency=${encodeURIComponent(recommendation.urgency_level)}&reasoning=${encodeURIComponent(recommendation.reasoning)}`}
                   className="block w-full py-1.5 text-center bg-[#2ab8d8] hover:bg-[#1fb1d1] text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition"
                 >
                   Book Specialist

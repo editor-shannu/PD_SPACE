@@ -29,6 +29,7 @@ const departments = [
   'Pediatrics',
   'Dermatology',
   'Orthopedics',
+  'Infectious Diseases',
 ];
 
 interface MockDoctor {
@@ -57,6 +58,10 @@ const mockDoctors: Record<string, MockDoctor[]> = {
   ],
   'Orthopedics': [
     { name: 'Dr. Robert Chase', slots: ['09:00 AM', '11:00 AM', '02:30 PM'] },
+  ],
+  'Infectious Diseases': [
+    { name: 'Dr. Anthony Fauci', slots: ['09:00 AM', '11:00 AM', '02:00 PM'] },
+    { name: 'Dr. Robert Gallo', slots: ['10:35 AM', '01:00 PM', '03:30 PM'] },
   ],
 };
 
@@ -89,20 +94,15 @@ function BookingFlow() {
 
   useEffect(() => {
     if (facilityParam) {
-      // Map facility types to appropriate departments
-      let mappedDept = 'General Medicine';
-      if (typeParam === 'hospital') {
-        mappedDept = 'General Medicine';
-      } else if (typeParam === 'clinic') {
-        mappedDept = 'General Medicine';
-      } else if (typeParam === 'pharmacy') {
-        mappedDept = 'General Medicine';
-      }
+      // Find matching department in our local departments list
+      const matchedDept = departments.find(
+        (d) => d.toLowerCase() === facilityParam.toLowerCase()
+      ) || 'General Medicine';
 
-      setSelectedDept(mappedDept);
+      setSelectedDept(matchedDept);
 
       // Pre-fill first doctor of the department
-      const docs = mockDoctors[mappedDept] || [];
+      const docs = mockDoctors[matchedDept] || [];
       if (docs.length > 0) {
         setSelectedDoc(docs[0].name);
         if (docs[0].slots.length > 0) {
@@ -110,7 +110,25 @@ function BookingFlow() {
         }
       }
 
-      setSymptoms(`Consultation regarding visit to nearby facility: ${facilityParam}.`);
+      // Prefill symptoms if passed, otherwise use fallback
+      const symptomsParam = searchParams.get('symptoms');
+      if (symptomsParam) {
+        setSymptoms(symptomsParam);
+      } else {
+        setSymptoms(`Consultation regarding visit to nearby facility: ${facilityParam}.`);
+      }
+
+      // Prefill recommendation if all details are passed
+      const urgencyParam = searchParams.get('urgency');
+      const reasoningParam = searchParams.get('reasoning');
+      if (urgencyParam && reasoningParam) {
+        setRecommendation({
+          recommended_department: facilityParam,
+          urgency_level: (urgencyParam as any) || 'routine',
+          reasoning: reasoningParam,
+        });
+        setUrgency((urgencyParam as any) || 'routine');
+      }
 
       // Set booking date to tomorrow
       const tomorrow = new Date();
@@ -120,7 +138,7 @@ function BookingFlow() {
       const dd = String(tomorrow.getDate()).padStart(2, '0');
       setBookingDate(`${yyyy}-${mm}-${dd}`);
     }
-  }, [facilityParam, typeParam]);
+  }, [facilityParam, typeParam, searchParams]);
 
   useEffect(() => {
     if (activeTab === 'history') {

@@ -9,6 +9,8 @@ import { AppointmentModel } from '@/models/appointment';
 // Helper to generate seed data if needed
 async function seedDataIfNeeded() {
   return;
+}
+async function seedDataIfNeededDeprecated() {
   const patientCount = await UserModel.countDocuments({ role: 'patient' });
   const docCount = await DocumentModel.countDocuments();
   const appointmentCount = await AppointmentModel.countDocuments();
