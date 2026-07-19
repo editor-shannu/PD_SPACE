@@ -92,7 +92,7 @@ async function tryOverpass(
   try {
     const query = buildQuery(lat, lng, radiusM);
     const res = await fetch(`${endpoint}?data=${encodeURIComponent(query)}`, {
-      headers: { 'User-Agent': 'MediFlowLocator/3.0 (mediflow@support.com)', Accept: 'application/json' },
+      headers: { 'User-Agent': 'MediFlowLocator/3.0 (mediflow@support.com)' },
       signal: controller.signal,
     });
     clearTimeout(timerId);
@@ -252,14 +252,21 @@ export async function GET(req: NextRequest) {
       try {
         const types = ['hospital', 'clinic', 'pharmacy', 'doctors'];
         const nominatimResults: Facility[] = [];
+        // ~30km bounding box: 0.27 degrees from center
+        const dDeg = 0.27;
+        const left = lng - dDeg;
+        const right = lng + dDeg;
+        const top = lat + dDeg;
+        const bottom = lat - dDeg;
+
         for (const amenity of types) {
           const controller = new AbortController();
           const tid = setTimeout(() => controller.abort(), 7000);
           try {
             const res = await fetch(
-              `https://nominatim.openstreetmap.org/search?amenity=${amenity}&lat=${lat}&lon=${lng}&radius=30000&format=json&limit=15&addressdetails=1`,
+              `https://nominatim.openstreetmap.org/search?amenity=${amenity}&viewbox=${left},${top},${right},${bottom}&bounded=1&format=json&limit=15&addressdetails=1`,
               {
-                headers: { 'User-Agent': 'MediFlowLocator/3.0 (mediflow@support.com)', Accept: 'application/json' },
+                headers: { 'User-Agent': 'MediFlowLocator/3.0 (mediflow@support.com)' },
                 signal: controller.signal,
               }
             );
