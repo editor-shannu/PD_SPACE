@@ -106,6 +106,7 @@ export default function DoctorDashboardPage() {
   const [isCoolingActive, setIsCoolingActive] = useState(false);
   const [coolingDaysRemaining, setCoolingDaysRemaining] = useState(0);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [isExistingPatient, setIsExistingPatient] = useState(false);
 
   // Verification Form Inputs
   const [docName, setDocName] = useState('');
@@ -233,6 +234,7 @@ export default function DoctorDashboardPage() {
           setIsCoolingActive(!!data.isCoolingActive);
           setCoolingDaysRemaining(data.coolingDaysRemaining || 0);
           setRejectionReason(data.doctorRejectionReason || '');
+          setIsExistingPatient(!!data.isExistingPatient);
           if (data.status === 'approved' || data.role === 'doctor' || data.role === 'admin' || userRole === 'admin') {
             fetchPatients('');
             fetchAppointments();
@@ -317,6 +319,43 @@ export default function DoctorDashboardPage() {
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-3 bg-white/60 backdrop-blur-xl border border-white rounded-3xl p-10 max-w-5xl mx-auto my-8 shadow-sm">
         <div className="h-10 w-10 border-4 border-[#2ab8d8]/30 border-t-[#2ab8d8] rounded-full animate-spin" />
         <p className="text-[#003893] text-sm font-black animate-pulse">Verifying Doctor Credentials &amp; Access Permissions...</p>
+      </div>
+    );
+  }
+
+  // 0. Existing Patient Account Access Restriction View
+  if (isExistingPatient && appStatus !== 'approved' && userRole !== 'admin') {
+    return (
+      <div className="max-w-xl mx-auto my-12 p-8 bg-white/90 backdrop-blur-2xl border border-red-100 rounded-3xl shadow-xl text-center space-y-5">
+        <div className="w-16 h-16 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-center mx-auto text-3xl shadow-sm">
+          🚫
+        </div>
+        <div className="space-y-1.5">
+          <span className="px-3 py-1 bg-red-100 text-red-800 text-[10px] font-black uppercase rounded-full border border-red-200">
+            Access Restricted
+          </span>
+          <h2 className="text-xl font-black text-[#003893]">Patient Account Detected</h2>
+        </div>
+        <p className="text-xs text-gray-600 font-semibold leading-relaxed max-w-md mx-auto">
+          An account registered as a <b>Patient</b> in MediFlow cannot use, sign in, or access the Doctor Portal.
+        </p>
+        <div className="p-4 bg-gray-50/80 rounded-2xl border border-gray-150 text-left text-xs font-semibold text-gray-500 space-y-1.5">
+          <p className="font-extrabold text-gray-700">Account Details:</p>
+          <p>• Email: <span className="font-bold text-gray-800">{session?.user?.email}</span></p>
+          <p>• Registered Role: <span className="font-bold text-sky-800 uppercase">Patient</span></p>
+          <p className="text-[11px] text-gray-400 mt-2">
+            If you are a medical provider, please register using a dedicated professional email address or contact support at <b className="text-[#003893]">heallink.care@gmail.com</b>.
+          </p>
+        </div>
+
+        <div className="pt-2 flex justify-center">
+          <button
+            onClick={() => router.push('/dashboard/patient')}
+            className="px-6 py-3 bg-[#003893] hover:bg-[#002868] text-white text-xs font-extrabold rounded-2xl transition shadow-md"
+          >
+            Go to Patient Dashboard →
+          </button>
+        </div>
       </div>
     );
   }

@@ -36,6 +36,12 @@ export async function GET() {
       status = 'approved';
     }
 
+    // Check if user is an existing registered patient who completed EMR as a patient
+    const isExistingPatient =
+      user.role === 'patient' &&
+      (user.emrCompleted === true || !!user.emrProfile?.name || !!user.emrProfile?.phone) &&
+      (!user.doctorApplicationStatus || user.doctorApplicationStatus === 'none');
+
     let coolingDaysRemaining = 0;
     let isCoolingActive = false;
 
@@ -54,6 +60,7 @@ export async function GET() {
       success: true,
       status,
       role: user.role,
+      isExistingPatient,
       doctorProfile: user.doctorProfile || null,
       doctorRejectedAt: user.doctorRejectedAt || null,
       doctorRejectionReason: user.doctorRejectionReason || '',
@@ -100,6 +107,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'User account not found.' },
         { status: 404 }
+      );
+    }
+
+    // Block existing registered patients from submitting doctor applications
+    const isExistingPatient =
+      user.role === 'patient' &&
+      (user.emrCompleted === true || !!user.emrProfile?.name || !!user.emrProfile?.phone) &&
+      (!user.doctorApplicationStatus || user.doctorApplicationStatus === 'none');
+
+    if (isExistingPatient) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Patient Account Detected: Accounts registered as a Patient in MediFlow cannot use or apply for the Doctor Portal.',
+        },
+        { status: 403 }
       );
     }
 
