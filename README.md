@@ -24,10 +24,15 @@ MediFlow is a modern, full-stack healthcare platform designed to streamline pati
 * **Mandatory 1-Week (7-Day) Cooling Period**: If an application is rejected, an automated 7-day cooling period is programmatically enforced by both the API (`/api/doctor/apply`) and UI. Displays a live days-remaining countdown card preventing premature re-applications.
 * **Verified Doctor Directory (`/api/doctors`)**: Patient appointment booking displays only verified, admin-approved medical doctors.
 
-### 3. Doctor Portal & Clinical Co-Pilot
-* **Real-Time Appointment Notifications**: Displays active notification banners when patients book appointments with the doctor.
-* **Pre-Consultation AI Summary**: Generates clinical history snapshots, medication timelines, and safety alerts for assigned patients.
+### 3. Doctor Portal, Data Isolation & Referral System
+* **Strict Patient Data Isolation**: The patient directory (`/api/doctor/patients`) is strictly filtered to only display patients who have booked an appointment with the logged-in doctor, have been formally referred to them by a colleague, or have associated document records.
+* **Doctor-to-Doctor Patient Referrals (`ReferralModel` & `/api/doctor/refer`)**: Physicians can seamlessly transfer patient access and clinical handover notes to available verified doctor specialists within the portal.
+* **Referral Management Dashboard (`🔄 Referrals Log`)**: Dedicated referral queue displaying incoming and outgoing cross-consultations with status tracking, sending doctor details, target doctor specialization, and clinical handover notes.
+* **Multi-Touch Referral Actions**: "Refer 🔄" action buttons integrated directly into Patient Cards, Appointment Queue items, and the AI Pre-Consultation Summary header for one-click referral modal launches.
+* **Real-Time Appointment Notifications**: Displays active notification banners when patients book appointments with the doctor, including referred patient bookings.
+* **Pre-Consultation AI Summary**: Generates clinical history snapshots, medication timelines, and safety alerts for assigned patients powered by Gemini API.
 * **Digital Checkup Completion & Signature**: Doctors can mark consultations as completed, record clinical notes, attach test result summaries, and sign with a verified digital doctor signature.
+* **Restricted Consultation Audit Log (`📜 Consulted Logs`)**: Dedicated audit log in the Doctor Dashboard restricted exclusively to patients who have completed checkups with that doctor.
 * **Real-Time Consultation Sync**: Completed consultation notes, test results, and doctor signatures instantly sync to the patient's dashboard.
 
 ### 4. Interactive Patient Care & Reminders
@@ -40,7 +45,7 @@ MediFlow is a modern, full-stack healthcare platform designed to streamline pati
   * Patient compliance scores (%)
   * Treatment timelines (average days to resolution)
   * Department appointment bottlenecks (interactive volume bar charts)
-* **Real-Time System Logs**: Separate, audit-ready registration logs for verified doctors and registered patients.
+* **Real-Time System Registration Logs**: Separate, audit-ready registration logs for verified doctors and registered patients.
 * **LLM Operations Review**: Aggregated analytics sent to Gemini to generate concise operational recommendations and clinical solutions.
 
 ---
@@ -60,7 +65,8 @@ PD_SPACE/
 │   │   │   ├── auth/[...nextauth]/route.ts → NextAuth authentication handler
 │   │   │   ├── doctor/
 │   │   │   │   ├── apply/route.ts          → Doctor verification form & 1-week cooling period API
-│   │   │   │   ├── patients/route.ts       → Doctor assigned patient list API
+│   │   │   │   ├── patients/route.ts       → Isolated assigned/referred patient list API
+│   │   │   │   ├── refer/route.ts          → Doctor-to-doctor patient referral creation & retrieval API
 │   │   │   │   ├── role/route.ts           → User role query API
 │   │   │   │   └── summary/route.ts        → Gemini AI patient summary generator API
 │   │   │   ├── doctors/route.ts            → Filtered list of verified, approved doctors API
@@ -76,8 +82,8 @@ PD_SPACE/
 │   │   │   ├── login/page.tsx              → Credentials & Google login page
 │   │   │   └── register/page.tsx           → User registration page
 │   │   ├── dashboard/                      → App Role Dashboards
-│   │   │   ├── admin/page.tsx              → Admin analytics, doctor verification queue & logs
-│   │   │   ├── doctor/page.tsx             → Doctor Portal (Verification Form, Review Gate & Clinical Co-pilot)
+│   │   │   ├── admin/page.tsx              → Admin analytics, doctor verification queue & user registration logs
+│   │   │   ├── doctor/page.tsx             → Doctor Portal (Verification Form, Data Isolation, Referrals Log & Co-pilot)
 │   │   │   └── patient/page.tsx            → Patient Portal (EMR Gate, Uploads, Triage, Appointments & Reminders)
 │   │   ├── globals.css                     → Design system & custom CSS variables
 │   │   ├── layout.tsx                      → Root application layout & NextAuth Provider wrapper
@@ -104,6 +110,7 @@ PD_SPACE/
 │   │   ├── alert.ts                        → Clinical alert model
 │   │   ├── appointment.ts                  → Patient booking & doctor consultation sign-off schema
 │   │   ├── document.ts                     → Medical document metadata schema
+│   │   ├── referral.ts                     → Doctor-to-doctor patient referral schema
 │   │   └── user.ts                         → User model with EMR profile & Doctor application profile
 │   ├── types/                              → TypeScript Type Definitions
 │   │   ├── documents.ts                    → User, EMR Profile, Doctor Profile & Document interfaces
