@@ -7,6 +7,8 @@ MediFlow is a modern, full-stack healthcare platform designed to streamline pati
 ## 🌟 Key Features
 
 ### 1. Patient Portal & Document Pipeline
+* **Compulsory EMR Registration & Access Gate**: Enforces completion of a comprehensive Electronic Medical Record (EMR) form (Personal Vitals, Primary Phone, Blood Group, Emergency Contact, Pre-existing Conditions, Allergies, Current Medications, Address) for all new and existing registered patients upon opening the dashboard. Unlocks full dashboard access only upon saving.
+* **On-Demand EMR Profile Editing**: Integrated "Edit EMR Form" button and Verified Patient EMR Profile card directly on the Patient Dashboard header allowing patients to update their medical details anytime.
 * **Smart Upload**: Drag-and-drop system accepting medical documents, handwritten prescriptions, and clinical reports (PDF, PNG, JPG).
 * **Zero-Shot Validation**: Powered by a FastAPI microservice to detect and filter out non-medical documents before extraction.
 * **Hybrid OCR & AI Extraction**: Tesseract OCR extracts text, and the Google Gemini reasoning engine structures it into precise clinical schemas (diagnoses, medications, dosage, follow-up dates).
@@ -79,12 +81,13 @@ src/
 ├── app/                  → Next.js pages, layouts, and API endpoints
 │   ├── api/
 │   │   ├── admin/stats   → Admin analytics calculation API
+│   │   ├── patient/      → Compulsory EMR profile save & fetch API
 │   │   ├── recommend     → Symptom triage & specialty checker
 │   │   └── documents/    → Upload & GridFS management
 │   └── dashboard/        → Admin, Doctor, and Patient views
-├── components/           → Shared UI widgets and alerts
+├── components/           → Shared UI widgets, EmrFormModal & PatientEmrGate
 ├── lib/                  → Auth options, DB connectors, alert engines
-├── models/               → Mongoose schemas (User, Document, Appointment)
+├── models/               → Mongoose schemas (User with EMR Profile, Document, Appointment)
 └── utils/                → Helper functions (OCR, local parsers)
 ```
 
