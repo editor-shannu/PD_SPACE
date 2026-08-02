@@ -132,6 +132,20 @@ export const authOptions: NextAuthOptions = {
         token.name    = user.name;
         token.picture = user.image;
         token.role    = (user as SessionUser).role || 'patient';
+      } else if (token.email) {
+        try {
+          await connectDB();
+          const dbUser: any = await UserModel.findOne({ email: token.email }).select('role doctorApplicationStatus').lean();
+          if (dbUser) {
+            if (dbUser.doctorApplicationStatus === 'approved' || dbUser.role === 'doctor' || dbUser.role === 'admin') {
+              token.role = dbUser.role === 'admin' ? 'admin' : 'doctor';
+            } else {
+              token.role = dbUser.role || 'patient';
+            }
+          }
+        } catch (e) {
+          // fallback to cached token role if DB connection fails
+        }
       }
       return token;
     },
