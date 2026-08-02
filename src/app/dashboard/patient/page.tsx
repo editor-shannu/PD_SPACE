@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import type { Document } from '@/types/documents';
+import { useEmrProfile } from '@/components/PatientEmrGate';
 
 interface Recommendation {
   recommended_department: string;
@@ -18,6 +19,7 @@ interface Recommendation {
 
 export default function PatientDashboard() {
   const { data: session } = useSession();
+  const { emrProfile, openEditModal } = useEmrProfile();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -114,24 +116,95 @@ export default function PatientDashboard() {
           </h1>
           <p className="text-gray-400 text-sm mt-0.5">How is your health today?</p>
         </div>
-        {!mounted ? (
-          <div className="w-12 h-12 rounded-2xl bg-[#2ab8d8] flex items-center justify-center text-white font-black text-lg shadow-md shadow-[#2ab8d8]/30">
-            P
-          </div>
-        ) : session?.user?.image ? (
-          <Image
-            src={session.user.image}
-            alt="Profile"
-            width={48}
-            height={48}
-            className="w-12 h-12 rounded-2xl border-2 border-[#2ab8d8]/30 shadow-md"
-          />
-        ) : (
-          <div className="w-12 h-12 rounded-2xl bg-[#2ab8d8] flex items-center justify-center text-white font-black text-lg shadow-md shadow-[#2ab8d8]/30">
-            {firstName.charAt(0)}
-          </div>
-        )}
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={openEditModal}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white/80 hover:bg-white border border-gray-200 text-[#003893] font-bold text-xs shadow-sm hover:shadow transition-all hover:scale-105"
+            title="Edit your patient EMR & health details"
+          >
+            <span>📋</span>
+            <span>Edit EMR Form</span>
+          </button>
+
+          {!mounted ? (
+            <div className="w-12 h-12 rounded-2xl bg-[#2ab8d8] flex items-center justify-center text-white font-black text-lg shadow-md shadow-[#2ab8d8]/30">
+              P
+            </div>
+          ) : session?.user?.image ? (
+            <Image
+              src={session.user.image}
+              alt="Profile"
+              width={48}
+              height={48}
+              className="w-12 h-12 rounded-2xl border-2 border-[#2ab8d8]/30 shadow-md"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-2xl bg-[#2ab8d8] flex items-center justify-center text-white font-black text-lg shadow-md shadow-[#2ab8d8]/30">
+              {firstName.charAt(0)}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Patient EMR & Health Summary Card */}
+      {emrProfile && (
+        <div className="bg-gradient-to-r from-white/80 via-white/60 to-cyan-50/60 backdrop-blur-xl border border-white/90 rounded-3xl p-5 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#003893]/10 flex items-center justify-center text-sm font-bold text-[#003893]">
+                📋
+              </div>
+              <div>
+                <h3 className="text-xs font-black text-[#003893] uppercase tracking-wider">
+                  Verified Patient EMR Profile
+                </h3>
+                <p className="text-[10px] text-gray-400 font-semibold">
+                  Personal & Emergency Record • Sync'd
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-black rounded-xl">
+                Blood Group: {emrProfile.bloodGroup || 'Not set'}
+              </span>
+              <button
+                onClick={openEditModal}
+                className="px-3 py-1 bg-[#2ab8d8]/15 hover:bg-[#2ab8d8]/25 text-[#2ab8d8] text-xs font-bold rounded-xl transition"
+              >
+                Edit
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
+            <div className="bg-white/80 p-2.5 rounded-2xl border border-gray-100">
+              <span className="text-[10px] font-bold text-gray-400 block uppercase">Phone</span>
+              <span className="font-bold text-[#003893] truncate block">{emrProfile.phone || '—'}</span>
+            </div>
+
+            <div className="bg-white/80 p-2.5 rounded-2xl border border-gray-100">
+              <span className="text-[10px] font-bold text-gray-400 block uppercase">Emergency Contact</span>
+              <span className="font-bold text-[#003893] truncate block">
+                {emrProfile.emergencyContactPhone
+                  ? `${emrProfile.emergencyContactName || 'Emergency'}: ${emrProfile.emergencyContactPhone}`
+                  : '—'}
+              </span>
+            </div>
+
+            <div className="bg-white/80 p-2.5 rounded-2xl border border-gray-100">
+              <span className="text-[10px] font-bold text-gray-400 block uppercase">Conditions</span>
+              <span className="font-bold text-[#003893] truncate block">{emrProfile.preExistingConditions || 'None'}</span>
+            </div>
+
+            <div className="bg-white/80 p-2.5 rounded-2xl border border-gray-100">
+              <span className="text-[10px] font-bold text-gray-400 block uppercase">Allergies</span>
+              <span className="font-bold text-[#003893] truncate block">{emrProfile.allergies || 'None'}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Grid Layout: Main info and Sidebar */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">

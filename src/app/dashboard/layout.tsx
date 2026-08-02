@@ -11,6 +11,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
 import type React from 'react';
 import Image from 'next/image';
+import PatientEmrGate from '@/components/PatientEmrGate';
 
 const navItems = [
   {
@@ -201,7 +202,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* ─── Page Content ───────────────────────────────────── */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 pb-28 md:pb-10">
-        {children}
+        {!isDoctorRoute && pathname !== '/dashboard/admin' ? (
+          <PatientEmrGate>{children}</PatientEmrGate>
+        ) : (
+          children
+        )}
       </main>
 
       {/* ─── Bottom Nav — Mobile (Glassmorphic) ─────────────── */}

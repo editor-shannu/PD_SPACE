@@ -1,3 +1,22 @@
+export interface EmrProfile {
+  fullName: string;
+  dob?: string;
+  age?: number;
+  gender?: string;
+  phone?: string;
+  bloodGroup?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyRelation?: string;
+  preExistingConditions?: string;
+  allergies?: string;
+  currentMedications?: string;
+  height?: string;
+  weight?: string;
+  address?: string;
+  updatedAt?: Date | string;
+}
+
 /**
  * User interface
  */
@@ -7,6 +26,8 @@ export interface User {
   email: string;
   name: string;
   role?: 'patient' | 'doctor' | 'admin';
+  isEmrCompleted?: boolean;
+  emrProfile?: EmrProfile;
   createdAt?: Date;
   updatedAt?: Date;
 }
