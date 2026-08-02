@@ -442,23 +442,23 @@ export default function AdminDashboard() {
       </div>
     </div>
 
-      {/* User Permissions Management Card */}
-      <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Registered Doctors & Patients Logs */}
+      <div className="space-y-6">
+        {/* Search Bar for All Registration Logs */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-5 shadow-sm">
           <div>
-            <h3 className="text-sm font-bold text-[#003893] uppercase tracking-widest flex items-center gap-1.5">
-              <span>🔑</span> User Access &amp; Doctor Permissions
+            <h3 className="text-sm font-black text-[#003893] uppercase tracking-wider flex items-center gap-2">
+              <span>📜</span> Real-Time System Registration Logs
             </h3>
-            <p className="text-[10px] text-gray-400 font-semibold mt-0.5">
-              Grant or revoke doctor portal permissions for Heallink medical providers.
+            <p className="text-xs text-gray-400 font-semibold mt-0.5">
+              Comprehensive registry of verified doctors and registered patients on the platform.
             </p>
           </div>
 
-          {/* Search Input */}
-          <div className="relative w-full sm:w-64">
+          <div className="relative w-full sm:w-72">
             <input
               type="text"
-              placeholder="Search user by name or email..."
+              placeholder="Filter logs by name or email..."
               value={usersSearch}
               onChange={(e) => {
                 setUsersSearch(e.target.value);
@@ -477,87 +477,168 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {usersLoading && users.length === 0 ? (
-          <div className="py-8 text-center space-y-2">
-            <div className="h-6 w-6 border-2 border-[#2ab8d8]/30 border-t-[#2ab8d8] rounded-full animate-spin mx-auto" />
-            <p className="text-[10px] text-gray-400 font-semibold">Loading user records...</p>
+        {/* LOG 1: Registered Doctors Log */}
+        <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-black text-[#003893] uppercase tracking-widest flex items-center gap-2">
+              <span className="text-base">🩺</span> Registered Doctors Log ({users.filter((u) => u.role === 'doctor' || u.role === 'admin').length})
+            </h3>
+            <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-sky-100 text-sky-800 border border-sky-200">
+              Verified Medical Providers
+            </span>
           </div>
-        ) : users.length === 0 ? (
-          <div className="py-8 text-center bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-            <p className="text-xs font-bold text-gray-400">No users found matching query</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-2xl border border-gray-150 bg-white/70 shadow-inner">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-gray-150 bg-gray-150/60 text-[#003893] font-bold">
-                  <th className="p-3">User Details</th>
-                  <th className="p-3">Email Address</th>
-                  <th className="p-3">Current Role</th>
-                  <th className="p-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-150/40 font-semibold text-gray-600">
-                {users.map((user) => {
-                  const isPrimaryAdmin = user.email.toLowerCase().trim() === 'heallink.care@gmail.com';
-                  const hasDoctorAccess = user.role === 'doctor' || user.role === 'admin';
 
-                  return (
-                    <tr key={user.id} className="hover:bg-white/40 transition">
-                      <td className="p-3 flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-sky-50 text-[#003893] font-black flex items-center justify-center text-xs border border-sky-100 shadow-sm">
-                          {user.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-extrabold text-gray-800 leading-tight">{user.name}</p>
-                          {isPrimaryAdmin && (
-                            <span className="text-[9px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold uppercase mt-0.5 inline-block">
-                              Primary Admin
+          {usersLoading && users.length === 0 ? (
+            <div className="py-6 text-center text-xs text-gray-400 font-semibold animate-pulse">
+              Loading doctor registrations...
+            </div>
+          ) : users.filter((u) => u.role === 'doctor' || u.role === 'admin').length === 0 ? (
+            <div className="py-6 text-center text-xs text-gray-400 font-bold bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+              No registered doctors found.
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-gray-150 bg-white/70 shadow-inner">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-gray-150 bg-sky-50/70 text-[#003893] font-bold">
+                    <th className="p-3">Doctor Details</th>
+                    <th className="p-3">Email Address</th>
+                    <th className="p-3">Department / Access Role</th>
+                    <th className="p-3">Registered Date</th>
+                    <th className="p-3 text-right">Portal Permissions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-150/40 font-semibold text-gray-600">
+                  {users
+                    .filter((u) => u.role === 'doctor' || u.role === 'admin')
+                    .map((user) => {
+                      const isPrimaryAdmin = user.email.toLowerCase().trim() === 'heallink.care@gmail.com';
+                      const formattedDate = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Active User';
+
+                      return (
+                        <tr key={user.id} className="hover:bg-sky-50/30 transition">
+                          <td className="p-3 flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-xl bg-[#003893] text-white font-black flex items-center justify-center text-xs shadow-sm">
+                              👨‍⚕️
+                            </div>
+                            <div>
+                              <p className="font-extrabold text-gray-800 leading-tight">
+                                {user.name.startsWith('Dr.') ? user.name : `Dr. ${user.name}`}
+                              </p>
+                              {isPrimaryAdmin && (
+                                <span className="text-[9px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold uppercase mt-0.5 inline-block">
+                                  Primary Admin
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3 font-semibold text-gray-500">{user.email}</td>
+                          <td className="p-3">
+                            <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-sky-100 text-sky-800 border border-sky-200">
+                              {user.emrProfile?.department || (user.role === 'admin' ? 'System Administrator' : 'General Medicine')}
                             </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-3 font-semibold text-gray-500">{user.email}</td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                            user.role === 'admin'
-                              ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
-                              : user.role === 'doctor'
-                              ? 'bg-sky-100 text-sky-800 border border-sky-200'
-                              : 'bg-gray-100 text-gray-700 border border-gray-200'
-                          }`}
-                        >
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right">
-                        {isPrimaryAdmin ? (
-                          <span className="text-[10px] text-gray-400 font-semibold italic">System Protected</span>
-                        ) : (
-                          <button
-                            onClick={() => handleToggleUserRole(user.id, user.role)}
-                            disabled={updatingUserId === user.id}
-                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all shadow-sm ${
-                              hasDoctorAccess
-                                ? 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-200'
-                                : 'bg-[#2ab8d8]/10 hover:bg-[#2ab8d8]/20 text-[#2ab8d8] border border-[#2ab8d8]/30'
-                            } disabled:opacity-50`}
-                          >
-                            {updatingUserId === user.id ? (
-                              <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin inline-block mr-1 align-middle" />
-                            ) : null}
-                            {hasDoctorAccess ? 'Revoke Doctor Access' : 'Grant Doctor Access'}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          </td>
+                          <td className="p-3 text-gray-500 font-mono text-[11px]">{formattedDate}</td>
+                          <td className="p-3 text-right">
+                            {isPrimaryAdmin ? (
+                              <span className="text-[10px] text-gray-400 font-semibold italic">System Admin</span>
+                            ) : (
+                              <button
+                                onClick={() => handleToggleUserRole(user.id, user.role)}
+                                disabled={updatingUserId === user.id}
+                                className="px-3 py-1.5 rounded-xl text-[10px] font-black bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition shadow-sm disabled:opacity-50"
+                              >
+                                Revoke Doctor Portal Access
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* LOG 2: Registered Patients Log */}
+        <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-black text-[#003893] uppercase tracking-widest flex items-center gap-2">
+              <span className="text-base">👥</span> Registered Patients Log ({users.filter((u) => u.role === 'patient').length})
+            </h3>
+            <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+              Registered Patient Directory
+            </span>
           </div>
-        )}
+
+          {usersLoading && users.length === 0 ? (
+            <div className="py-6 text-center text-xs text-gray-400 font-semibold animate-pulse">
+              Loading patient registrations...
+            </div>
+          ) : users.filter((u) => u.role === 'patient').length === 0 ? (
+            <div className="py-6 text-center text-xs text-gray-400 font-bold bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+              No registered patients found.
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-gray-150 bg-white/70 shadow-inner">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-gray-150 bg-emerald-50/70 text-[#003893] font-bold">
+                    <th className="p-3">Patient Name</th>
+                    <th className="p-3">Email Address</th>
+                    <th className="p-3">EMR Form Status</th>
+                    <th className="p-3">Registered Date</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-150/40 font-semibold text-gray-600">
+                  {users
+                    .filter((u) => u.role === 'patient')
+                    .map((user) => {
+                      const formattedDate = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Active User';
+                      const isEmrDone = user.isEmrCompleted;
+
+                      return (
+                        <tr key={user.id} className="hover:bg-emerald-50/30 transition">
+                          <td className="p-3 flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 font-black flex items-center justify-center text-xs shadow-sm">
+                              {user.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-extrabold text-gray-800 leading-tight">{user.name}</p>
+                            </div>
+                          </td>
+                          <td className="p-3 font-semibold text-gray-500">{user.email}</td>
+                          <td className="p-3">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                isEmrDone
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                  : 'bg-amber-100 text-amber-800 border border-amber-200'
+                              }`}
+                            >
+                              {isEmrDone ? '✅ EMR Completed' : '⚠️ Pending EMR Form'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-gray-500 font-mono text-[11px]">{formattedDate}</td>
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={() => handleToggleUserRole(user.id, user.role)}
+                              disabled={updatingUserId === user.id}
+                              className="px-3 py-1.5 rounded-xl text-[10px] font-black bg-[#2ab8d8]/10 hover:bg-[#2ab8d8]/20 text-[#2ab8d8] border border-[#2ab8d8]/30 transition shadow-sm disabled:opacity-50"
+                            >
+                              Grant Doctor Portal Access
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

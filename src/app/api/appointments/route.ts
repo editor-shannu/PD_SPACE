@@ -19,10 +19,21 @@ export async function GET(req: NextRequest) {
 
     let appointments = [];
     if (userRole === 'doctor' || userRole === 'admin') {
-      // Return appointments assigned to doctor or all if admin
-      appointments = await AppointmentModel.find(
-        userRole === 'admin' ? {} : { $or: [{ doctorId: userId }, { doctorName: new RegExp((session.user as any).name || '', 'i') }] }
-      )
+      // Return appointments assigned to doctor (matching doctorId or doctorName)
+      const docName = (session.user as any).name || '';
+      const cleanDocName = docName.replace(/^Dr\.\s*/i, '').trim();
+
+      const doctorFilter = userRole === 'admin'
+        ? {}
+        : {
+            $or: [
+              { doctorId: userId },
+              { doctorName: new RegExp(docName, 'i') },
+              { doctorName: new RegExp(cleanDocName, 'i') },
+            ],
+          };
+
+      appointments = await AppointmentModel.find(doctorFilter)
         .sort({ createdAt: -1 })
         .lean();
     } else {
@@ -32,7 +43,24 @@ export async function GET(req: NextRequest) {
         .lean();
     }
 
-    return NextResponse.json({ success: true, appointments: appointments || [] });
+    // Enrich missing patient names from UserModel
+    const enrichedAppointments = await Promise.all(
+      appointments.map(async (app: any) => {
+        if (!app.patientName || app.patientName === 'Patient' || app.patientName.startsWith('Patient (')) {
+          if (app.patientId && app.patientId.match(/^[0-9a-fA-F]{24}$/)) {
+            const patient: any = await UserModel.findById(app.patientId).select('name email emrProfile').lean().catch(() => null);
+            if (patient) {
+              app.patientName = patient.name || patient.emrProfile?.fullName || app.patientName;
+              app.patientEmail = patient.email || app.patientEmail;
+              app.patientPhone = patient.emrProfile?.phone || app.patientPhone;
+            }
+          }
+        }
+        return app;
+      })
+    );
+
+    return NextResponse.json({ success: true, appointments: enrichedAppointments || [] });
   } catch (error) {
     console.error('Fetch appointments error:', error);
     return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });

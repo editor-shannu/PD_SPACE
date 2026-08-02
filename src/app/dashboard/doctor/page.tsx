@@ -80,7 +80,7 @@ export default function DoctorDashboardPage() {
   // Appointments & Notifications State
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
-  const [activeTab, setActiveTab] = useState<'patients' | 'appointments'>('patients');
+  const [activeTab, setActiveTab] = useState<'patients' | 'appointments' | 'consultation_logs'>('patients');
 
   // Checkup Completion Modal State
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentItem | null>(null);
@@ -363,7 +363,7 @@ export default function DoctorDashboardPage() {
 
       {/* Doctor Dashboard Navigation Tabs */}
       {!selectedPatientId && (
-        <div className="flex bg-white/80 backdrop-blur-xl border border-white p-1 rounded-2xl shadow-sm max-w-md">
+        <div className="flex bg-white/80 backdrop-blur-xl border border-white p-1 rounded-2xl shadow-sm max-w-xl">
           <button
             onClick={() => setActiveTab('patients')}
             className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition duration-200 ${
@@ -382,7 +382,17 @@ export default function DoctorDashboardPage() {
                 : 'text-gray-500 hover:text-[#003893]'
             }`}
           >
-            📅 Appointments Queue ({appointments.length})
+            📅 Appointments Queue ({appointments.filter((a) => a.status === 'pending').length})
+          </button>
+          <button
+            onClick={() => setActiveTab('consultation_logs')}
+            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition duration-200 ${
+              activeTab === 'consultation_logs'
+                ? 'bg-[#003893] text-white shadow-sm'
+                : 'text-gray-500 hover:text-[#003893]'
+            }`}
+          >
+            📜 Consulted Logs ({appointments.filter((a) => a.status === 'completed').length})
           </button>
         </div>
       )}
@@ -467,7 +477,7 @@ export default function DoctorDashboardPage() {
             )}
           </div>
         </div>
-      ) : (
+      ) : activeTab === 'appointments' ? (
         /* Appointments Queue Screen */
         <div className="space-y-4">
           <div className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-6 shadow-sm space-y-4">
@@ -582,6 +592,88 @@ export default function DoctorDashboardPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Completed Consultation Logs View - restricted strictly to patients who consulted this doctor */
+        <div className="space-y-4">
+          <div className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-extrabold text-[#003893] flex items-center gap-2">
+                  <span>📜</span> Patient Consultation &amp; EMR Records Log
+                </h2>
+                <p className="text-xs text-gray-400 font-semibold mt-0.5">
+                  Restricted access: Showing finalized consultation logs for patients who booked with Dr. {session?.user?.name || 'Doctor'}.
+                </p>
+              </div>
+              <span className="px-3 py-1 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-xs font-black">
+                {appointments.filter((a) => a.status === 'completed').length} Finalized Records
+              </span>
+            </div>
+
+            {appointments.filter((a) => a.status === 'completed').length === 0 ? (
+              <div className="p-12 text-center bg-emerald-50/40 rounded-2xl border border-dashed border-emerald-200 space-y-2">
+                <span className="text-3xl">🩺</span>
+                <h3 className="text-sm font-bold text-emerald-900">No Completed Consultations Yet</h3>
+                <p className="text-xs text-gray-500 max-w-md mx-auto">
+                  When patients select you and visit for their checkup, complete their appointment from the queue to generate signed consultation logs.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {appointments
+                  .filter((a) => a.status === 'completed')
+                  .map((app) => (
+                    <div
+                      key={app._id}
+                      className="p-5 rounded-2xl bg-white border border-emerald-100 shadow-xs hover:shadow-md transition space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg font-black">
+                            ✍️
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-black text-[#003893]">
+                              Patient: {app.patientName || `Patient (${app.patientId.slice(0, 6)})`}
+                            </h3>
+                            <p className="text-xs text-gray-500 font-medium">
+                              Dept: <span className="font-bold text-gray-700">{app.department}</span> | Email: <span className="font-semibold text-blue-700">{app.patientEmail || 'N/A'}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs font-extrabold text-emerald-700">
+                          <span className="px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-xl">
+                            ✅ Finalized on {app.completedDetails?.completionDate || app.date}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Log details */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <div className="p-3 bg-gray-50 rounded-xl space-y-1">
+                          <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Clinical Notes / Examination</span>
+                          <p className="font-semibold text-gray-800">{app.completedDetails?.clinicalNotes || 'Checkup completed.'}</p>
+                        </div>
+
+                        <div className="p-3 bg-gray-50 rounded-xl space-y-1">
+                          <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Test Results &amp; Vitals Summary</span>
+                          <p className="font-semibold text-gray-800">{app.completedDetails?.testResultsSummary || 'Vitals normal.'}</p>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex items-center justify-between text-[11px] text-gray-500 font-semibold border-t border-gray-100">
+                        <span>🗓️ Appt Date: {app.date} at {app.time}</span>
+                        <span className="font-mono font-bold text-emerald-800">
+                          Verified Signature: <span className="bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">✍️ {app.completedDetails?.doctorSignature || `${session?.user?.name || 'Doctor'}, M.D.`}</span>
+                        </span>
+                      </div>
+                    </div>
+                  ))}
               </div>
             )}
           </div>

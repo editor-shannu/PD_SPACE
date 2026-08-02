@@ -29,19 +29,22 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    // Query patients in UserModel or fallback to document userIds
-    let userQuery: any = { role: { $ne: 'doctor' } };
+    // Query patients in UserModel (strictly excluding doctor and admin roles)
+    let userQuery: any = { role: { $nin: ['doctor', 'admin'] } };
     if (search) {
       userQuery.$or = [
         { name: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
-        { _id: search.match(/^[0-[#a-fA-F0-9]{24}$/) ? search : undefined },
+        { _id: search.match(/^[0-9a-fA-F]{24}$/) ? search : undefined },
       ].filter(Boolean);
     }
 
     let users = await UserModel.find(userQuery).select('name email role createdAt').lean();
 
-    // If no users found in UserModel matching query, also scan DocumentModel for distinct patientIds
+    // Find doctors and admins to exclude from orphan document patient IDs
+    const nonPatientUsers = await UserModel.find({ role: { $in: ['doctor', 'admin'] } }).select('_id').lean();
+    const nonPatientIdSet = new Set(nonPatientUsers.map((u: any) => u._id.toString()));
+
     const documentPatientIds = await DocumentModel.distinct('userId');
 
     const patientList: any[] = [];
@@ -64,9 +67,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Include any document patient IDs not in user table
+    // Include any document patient IDs not in user table (and not doctor/admin)
     for (const pId of documentPatientIds) {
-      if (typeof pId === 'string' && !processedIds.has(pId)) {
+      if (typeof pId === 'string' && !processedIds.has(pId) && !nonPatientIdSet.has(pId)) {
         processedIds.add(pId);
 
         if (search && !pId.toLowerCase().includes(search.toLowerCase())) {

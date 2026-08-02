@@ -41,7 +41,8 @@ export async function GET(req: NextRequest) {
 
     // Sort by role (admins first, then doctors, then patients) and name
     const users = await UserModel.find(query)
-      .select('name email role')
+      .select('name email role isEmrCompleted emrProfile createdAt updatedAt')
+      .sort({ createdAt: -1 })
       .lean();
 
     const formattedUsers = users.map((u: any) => ({
@@ -49,6 +50,9 @@ export async function GET(req: NextRequest) {
       name: u.name,
       email: u.email,
       role: u.role || 'patient',
+      isEmrCompleted: !!u.isEmrCompleted,
+      emrProfile: u.emrProfile,
+      createdAt: u.createdAt || u.updatedAt || new Date().toISOString(),
     }));
 
     return NextResponse.json({ success: true, users: formattedUsers });
