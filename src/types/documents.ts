@@ -17,6 +17,16 @@ export interface EmrProfile {
   updatedAt?: Date | string;
 }
 
+export interface DoctorProfile {
+  department: string;
+  licenseNumber: string;
+  experienceYears?: string | number;
+  hospitalAffiliation?: string;
+  phone?: string;
+  qualifications?: string;
+  appliedAt?: Date | string;
+}
+
 /**
  * User interface
  */
@@ -28,6 +38,10 @@ export interface User {
   role?: 'patient' | 'doctor' | 'admin';
   isEmrCompleted?: boolean;
   emrProfile?: EmrProfile;
+  doctorApplicationStatus?: 'none' | 'pending' | 'approved' | 'rejected';
+  doctorProfile?: DoctorProfile;
+  doctorRejectedAt?: Date | string;
+  doctorRejectionReason?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

@@ -22,6 +22,19 @@ const emrProfileSchema = new Schema(
   { _id: false, timestamps: true }
 );
 
+const doctorProfileSchema = new Schema(
+  {
+    department: { type: String, required: true },
+    licenseNumber: { type: String, required: true },
+    experienceYears: { type: String },
+    hospitalAffiliation: { type: String },
+    phone: { type: String },
+    qualifications: { type: String },
+    appliedAt: { type: Date, default: Date.now },
+  },
+  { _id: false, timestamps: true }
+);
+
 const userSchema = new Schema<User>(
   {
     email: { type: String, required: true, unique: true, lowercase: true },
@@ -29,6 +42,14 @@ const userSchema = new Schema<User>(
     role: { type: String, enum: ['patient', 'doctor', 'admin'], default: 'patient' },
     isEmrCompleted: { type: Boolean, default: false },
     emrProfile: { type: emrProfileSchema },
+    doctorApplicationStatus: {
+      type: String,
+      enum: ['none', 'pending', 'approved', 'rejected'],
+      default: 'none',
+    },
+    doctorProfile: { type: doctorProfileSchema },
+    doctorRejectedAt: { type: Date },
+    doctorRejectionReason: { type: String, default: '' },
   },
   { timestamps: true }
 );

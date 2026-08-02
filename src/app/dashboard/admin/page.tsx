@@ -112,6 +112,34 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDoctorAction = async (userId: string, action: 'approve' | 'reject') => {
+    try {
+      setUpdatingUserId(userId);
+      setUsersError('');
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          action,
+          role: action === 'approve' ? 'doctor' : 'patient',
+          reason: action === 'reject' ? 'Verification requirements not met as determined by MediFlow Administrator.' : '',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        fetchUsers(usersSearch);
+      } else {
+        throw new Error(data.error || `Failed to ${action} doctor application`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setUsersError(err.message || `An error occurred while attempting to ${action} doctor.`);
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
   useEffect(() => {
     if (status === 'authenticated') {
       fetchStats();
@@ -476,6 +504,103 @@ export default function AdminDashboard() {
             <span>{usersError}</span>
           </div>
         )}
+
+        {/* PENDING DOCTOR VERIFICATION APPLICATIONS */}
+        <div className="bg-amber-50/70 backdrop-blur-xl border border-amber-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-black text-amber-900 uppercase tracking-widest flex items-center gap-2">
+              <span className="text-base">⏳</span> Pending Doctor Verification Requests ({users.filter((u) => u.doctorApplicationStatus === 'pending').length})
+            </h3>
+            <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-amber-200 text-amber-900 border border-amber-300">
+              Admin Verification Queue
+            </span>
+          </div>
+
+          {users.filter((u) => u.doctorApplicationStatus === 'pending').length === 0 ? (
+            <div className="py-6 text-center text-xs text-amber-700/70 font-semibold bg-white/60 rounded-2xl border border-dashed border-amber-200">
+              ✅ No pending doctor verification requests at this time. All doctor accounts are up to date!
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {users
+                .filter((u) => u.doctorApplicationStatus === 'pending')
+                .map((appUser) => {
+                  const dp = appUser.doctorProfile || {};
+                  const isUpdating = updatingUserId === appUser.id;
+
+                  return (
+                    <div
+                      key={appUser.id}
+                      className="p-5 rounded-2xl bg-white border border-amber-200 shadow-sm space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-100 pb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white font-black flex items-center justify-center text-lg shadow-sm">
+                            👨‍⚕️
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-black text-[#003893]">
+                              {appUser.name}
+                            </h4>
+                            <p className="text-xs text-gray-500 font-semibold">{appUser.email}</p>
+                          </div>
+                        </div>
+
+                        <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-xl self-start sm:self-auto border border-amber-200">
+                          Submitted: {dp.appliedAt ? new Date(dp.appliedAt).toLocaleDateString() : 'Recently'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs font-semibold text-gray-700">
+                        <div className="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100">
+                          <span className="text-[9px] font-extrabold text-amber-900 uppercase block">Department</span>
+                          <span className="font-extrabold text-[#003893]">{dp.department || 'Not specified'}</span>
+                        </div>
+
+                        <div className="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100">
+                          <span className="text-[9px] font-extrabold text-amber-900 uppercase block">Medical License #</span>
+                          <span className="font-mono font-bold text-gray-800">{dp.licenseNumber || 'N/A'}</span>
+                        </div>
+
+                        <div className="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100">
+                          <span className="text-[9px] font-extrabold text-amber-900 uppercase block">Hospital / Clinic</span>
+                          <span className="font-bold text-gray-800">{dp.hospitalAffiliation || 'N/A'}</span>
+                        </div>
+
+                        <div className="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100">
+                          <span className="text-[9px] font-extrabold text-amber-900 uppercase block">Contact Phone &amp; Exp</span>
+                          <span className="font-bold text-gray-800">{dp.phone || 'N/A'} ({dp.experienceYears || '1+'} yrs)</span>
+                        </div>
+                      </div>
+
+                      {dp.qualifications && (
+                        <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 text-xs text-gray-600">
+                          <span className="font-bold text-gray-700">Qualifications &amp; Degrees:</span> {dp.qualifications}
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-amber-100">
+                        <button
+                          onClick={() => handleDoctorAction(appUser.id, 'reject')}
+                          disabled={isUpdating}
+                          className="px-4 py-2 rounded-xl bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-extrabold text-xs transition-all disabled:opacity-50"
+                        >
+                          {isUpdating ? 'Updating...' : '❌ Reject Application'}
+                        </button>
+                        <button
+                          onClick={() => handleDoctorAction(appUser.id, 'approve')}
+                          disabled={isUpdating}
+                          className="px-5 py-2 rounded-xl bg-[#003893] text-white font-extrabold text-xs hover:bg-[#002868] shadow-md transition-all disabled:opacity-50"
+                        >
+                          {isUpdating ? 'Updating...' : '✅ Approve & Grant Doctor Access'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
 
         {/* LOG 1: Registered Doctors Log */}
         <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-sm space-y-4">

@@ -100,6 +100,25 @@ export default function DoctorDashboardPage() {
     pastConsultations?: AppointmentItem[];
   } | null>(null);
 
+  // Doctor Verification / Application State
+  const [appStatus, setAppStatus] = useState<'loading' | 'none' | 'pending' | 'approved' | 'rejected'>('loading');
+  const [appProfile, setAppProfile] = useState<any>(null);
+  const [isCoolingActive, setIsCoolingActive] = useState(false);
+  const [coolingDaysRemaining, setCoolingDaysRemaining] = useState(0);
+  const [rejectionReason, setRejectionReason] = useState('');
+
+  // Verification Form Inputs
+  const [docName, setDocName] = useState('');
+  const [docDept, setDocDept] = useState('General Medicine');
+  const [docLicense, setDocLicense] = useState('');
+  const [docHospital, setDocHospital] = useState('');
+  const [docPhone, setDocPhone] = useState('');
+  const [docExp, setDocExp] = useState('5');
+  const [docQuals, setDocQuals] = useState('MBBS, MD');
+  const [isSubmittingApp, setIsSubmittingApp] = useState(false);
+  const [appFormError, setAppFormError] = useState('');
+  const [appSuccessMsg, setAppSuccessMsg] = useState('');
+
   const userRole = (session?.user as any)?.role || 'patient';
   const doctorName = session?.user?.name || 'Doctor';
 
@@ -165,15 +184,80 @@ export default function DoctorDashboardPage() {
     }
   }, []);
 
+  // Submit doctor verification application
+  const handleSubmitDoctorApp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAppFormError('');
+    setAppSuccessMsg('');
+    setIsSubmittingApp(true);
+    try {
+      const res = await fetch('/api/doctor/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: docName || session?.user?.name,
+          department: docDept,
+          licenseNumber: docLicense,
+          hospitalAffiliation: docHospital,
+          phone: docPhone,
+          experienceYears: docExp,
+          qualifications: docQuals,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAppStatus('pending');
+        setAppProfile(data.doctorProfile);
+        setAppSuccessMsg('Application submitted! Your profile is now under administrative review.');
+      } else {
+        setAppFormError(data.error || 'Failed to submit doctor verification application.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setAppFormError('Network error while submitting application.');
+    } finally {
+      setIsSubmittingApp(false);
+    }
+  };
+
+  // Check Doctor Application Status
+  const checkDoctorApplicationStatus = useCallback(async () => {
+    try {
+      setAppStatus('loading');
+      const res = await fetch('/api/doctor/apply');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setAppStatus(data.status);
+          setAppProfile(data.doctorProfile);
+          setIsCoolingActive(!!data.isCoolingActive);
+          setCoolingDaysRemaining(data.coolingDaysRemaining || 0);
+          setRejectionReason(data.doctorRejectionReason || '');
+          if (data.status === 'approved' || data.role === 'doctor' || data.role === 'admin' || userRole === 'admin') {
+            fetchPatients('');
+            fetchAppointments();
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Check doctor application status error:', err);
+    }
+  }, [userRole, fetchPatients, fetchAppointments]);
+
   // Initial load
   useEffect(() => {
     if (status === 'authenticated') {
-      if (userRole === 'doctor' || userRole === 'admin') {
+      const email = session?.user?.email?.toLowerCase().trim();
+      setDocName(session?.user?.name || '');
+      if (email === 'heallink.care@gmail.com' || email === 'mediflow@test.com' || userRole === 'admin') {
+        setAppStatus('approved');
         fetchPatients('');
         fetchAppointments();
+      } else {
+        checkDoctorApplicationStatus();
       }
     }
-  }, [status, userRole, fetchPatients, fetchAppointments]);
+  }, [status, session, userRole, checkDoctorApplicationStatus, fetchPatients, fetchAppointments]);
 
   // Handle patient selection
   const handleSelectPatient = (patientId: string) => {
@@ -228,34 +312,269 @@ export default function DoctorDashboardPage() {
     }
   };
 
-  if (status === 'loading') {
+  if (status === 'loading' || appStatus === 'loading') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-3 bg-white/60 backdrop-blur-xl border border-white rounded-3xl p-10 max-w-5xl mx-auto my-8 shadow-sm">
         <div className="h-10 w-10 border-4 border-[#2ab8d8]/30 border-t-[#2ab8d8] rounded-full animate-spin" />
-        <p className="text-[#003893] text-sm font-black animate-pulse">Loading Doctor Portal...</p>
+        <p className="text-[#003893] text-sm font-black animate-pulse">Verifying Doctor Credentials &amp; Access Permissions...</p>
       </div>
     );
   }
 
-  // Role Guard View
-  if (userRole !== 'doctor' && userRole !== 'admin') {
+  // 1. Doctor Registration & Verification Form View (When application status is 'none')
+  if (appStatus === 'none' && userRole !== 'admin') {
     return (
-      <div className="max-w-xl mx-auto my-12 p-8 bg-white/80 backdrop-blur-xl border border-red-100 rounded-3xl shadow-lg text-center space-y-4">
-        <div className="w-16 h-16 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-center mx-auto text-2xl">
-          🚫
+      <div className="max-w-2xl mx-auto my-8 p-8 bg-white/90 backdrop-blur-2xl border border-white rounded-3xl shadow-xl space-y-6">
+        <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#003893] to-[#2ab8d8] text-white font-black flex items-center justify-center text-2xl shadow-md">
+            🩺
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-[#003893]">Doctor Registration &amp; Verification Form</h2>
+            <p className="text-xs text-gray-500 font-semibold mt-0.5">
+              Submit your medical credentials for Admin verification to unlock Doctor Portal access.
+            </p>
+          </div>
         </div>
-        <h2 className="text-xl font-extrabold text-[#003893]">Doctor Access Restricted</h2>
-        <p className="text-xs text-gray-500 font-medium leading-relaxed">
-          Your account is currently registered as a <b>Patient</b> account. The doctor pre-consultation summary dashboard is accessible only to authorized medical providers.
-        </p>
-        <p className="text-xs text-gray-400 font-bold leading-relaxed bg-gray-50 p-3 rounded-2xl border border-gray-100">
-          Please contact the primary system administrator at <span className="text-[#003893] font-extrabold">heallink.care@gmail.com</span> to request doctor portal credentials.
-        </p>
 
-        <div className="pt-2 flex justify-center">
+        {appFormError && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 font-bold flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{appFormError}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmitDoctorApp} className="space-y-4 text-xs font-bold text-gray-700">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-gray-600 mb-1">Full Legal / Professional Name <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                required
+                value={docName}
+                onChange={(e) => setDocName(e.target.value)}
+                placeholder="Dr. Full Name"
+                className="w-full p-3 rounded-2xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#2ab8d8] outline-none transition font-semibold text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="block text-gray-600 mb-1">Department / Specialty <span className="text-red-500">*</span></label>
+              <select
+                value={docDept}
+                onChange={(e) => setDocDept(e.target.value)}
+                className="w-full p-3 rounded-2xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#2ab8d8] outline-none transition font-semibold text-xs"
+              >
+                <option value="General Medicine">General Medicine</option>
+                <option value="Cardiology">Cardiology</option>
+                <option value="Neurology">Neurology</option>
+                <option value="Pediatrics">Pediatrics</option>
+                <option value="Orthopedics">Orthopedics</option>
+                <option value="Dermatology">Dermatology</option>
+                <option value="Psychiatry">Psychiatry</option>
+                <option value="Oncology">Oncology</option>
+                <option value="Surgery">Surgery</option>
+                <option value="Gynecology">Gynecology</option>
+                <option value="Emergency Medicine">Emergency Medicine</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-gray-600 mb-1">Medical License Number <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                required
+                value={docLicense}
+                onChange={(e) => setDocLicense(e.target.value)}
+                placeholder="e.g. MED-894721"
+                className="w-full p-3 rounded-2xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#2ab8d8] outline-none transition font-semibold text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="block text-gray-600 mb-1">Hospital / Clinic Affiliation <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                required
+                value={docHospital}
+                onChange={(e) => setDocHospital(e.target.value)}
+                placeholder="e.g. City General Hospital"
+                className="w-full p-3 rounded-2xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#2ab8d8] outline-none transition font-semibold text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-gray-600 mb-1">Contact Phone Number <span className="text-red-500">*</span></label>
+              <input
+                type="tel"
+                required
+                value={docPhone}
+                onChange={(e) => setDocPhone(e.target.value)}
+                placeholder="+1 (555) 019-2834"
+                className="w-full p-3 rounded-2xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#2ab8d8] outline-none transition font-semibold text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="block text-gray-600 mb-1">Years of Clinical Experience</label>
+              <input
+                type="text"
+                value={docExp}
+                onChange={(e) => setDocExp(e.target.value)}
+                placeholder="e.g. 5 years"
+                className="w-full p-3 rounded-2xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#2ab8d8] outline-none transition font-semibold text-xs"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-gray-600 mb-1">Qualifications &amp; Degrees</label>
+            <input
+              type="text"
+              value={docQuals}
+              onChange={(e) => setDocQuals(e.target.value)}
+              placeholder="e.g. MBBS, MD (Internal Medicine), FACP"
+              className="w-full p-3 rounded-2xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#2ab8d8] outline-none transition font-semibold text-xs"
+            />
+          </div>
+
+          <div className="pt-4 flex items-center justify-between border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard/patient')}
+              className="px-5 py-2.5 rounded-2xl bg-gray-100 text-gray-600 font-bold hover:bg-gray-200 transition"
+            >
+              Cancel &amp; Go to Patient Portal
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmittingApp}
+              className="px-6 py-3 rounded-2xl bg-[#003893] text-white font-extrabold shadow-lg hover:bg-[#002868] transition disabled:opacity-50"
+            >
+              {isSubmittingApp ? 'Submitting Application...' : 'Submit Verification Form →'}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  // 2. Application Pending View (Under Review)
+  if (appStatus === 'pending' && userRole !== 'admin') {
+    return (
+      <div className="max-w-2xl mx-auto my-12 p-8 bg-amber-50/80 backdrop-blur-2xl border border-amber-200 rounded-3xl shadow-xl space-y-6 text-center">
+        <div className="w-16 h-16 bg-amber-100 border border-amber-300 rounded-3xl flex items-center justify-center mx-auto text-3xl shadow-sm animate-pulse">
+          ⏳
+        </div>
+
+        <div className="space-y-2">
+          <span className="px-3 py-1 bg-amber-200 text-amber-900 text-[10px] font-black uppercase rounded-full border border-amber-300">
+            Under Administrative Review
+          </span>
+          <h2 className="text-2xl font-black text-[#003893]">Doctor Application Submitted</h2>
+          <p className="text-xs text-amber-900 font-semibold leading-relaxed max-w-lg mx-auto">
+            Your medical verification application has been received. MediFlow Administrators are verifying your license number and clinical credentials.
+          </p>
+        </div>
+
+        {appProfile && (
+          <div className="bg-white/90 border border-amber-200 rounded-2xl p-5 text-left text-xs font-semibold text-gray-700 space-y-2 shadow-inner">
+            <h4 className="font-extrabold text-[#003893] uppercase text-[10px] tracking-wider border-b border-amber-100 pb-1">
+              Submitted Verification Profile Details
+            </h4>
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <p><span className="text-gray-400">Department:</span> <b>{appProfile.department}</b></p>
+              <p><span className="text-gray-400">License #:</span> <b className="font-mono">{appProfile.licenseNumber}</b></p>
+              <p><span className="text-gray-400">Hospital:</span> <b>{appProfile.hospitalAffiliation}</b></p>
+              <p><span className="text-gray-400">Phone:</span> <b>{appProfile.phone}</b></p>
+            </div>
+          </div>
+        )}
+
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <button
+            onClick={() => checkDoctorApplicationStatus()}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-2xl bg-[#003893] text-white font-extrabold text-xs hover:bg-[#002868] shadow-md transition"
+          >
+            🔄 Refresh Status
+          </button>
           <button
             onClick={() => router.push('/dashboard/patient')}
-            className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-2xl transition"
+            className="w-full sm:w-auto px-6 py-2.5 rounded-2xl bg-white border border-amber-300 text-amber-900 font-extrabold text-xs hover:bg-amber-100 transition"
+          >
+            Go to Patient Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Application Rejected View (With 1-Week Cooling Period)
+  if (appStatus === 'rejected' && userRole !== 'admin') {
+    return (
+      <div className="max-w-2xl mx-auto my-12 p-8 bg-red-50/90 backdrop-blur-2xl border border-red-200 rounded-3xl shadow-xl space-y-6 text-center">
+        <div className="w-16 h-16 bg-red-100 border border-red-300 rounded-3xl flex items-center justify-center mx-auto text-3xl shadow-sm">
+          ❌
+        </div>
+
+        <div className="space-y-2">
+          <span className="px-3 py-1 bg-red-200 text-red-900 text-[10px] font-black uppercase rounded-full border border-red-300">
+            Application Rejected
+          </span>
+          <h2 className="text-2xl font-black text-red-950">Verification Application Not Approved</h2>
+          <p className="text-xs text-red-900 font-semibold leading-relaxed max-w-lg mx-auto">
+            {rejectionReason || 'Your doctor verification application was not approved by the MediFlow Administrator.'}
+          </p>
+        </div>
+
+        {/* 1-WEEK COOLING PERIOD CARD */}
+        <div className="bg-white/90 border border-red-200 rounded-2xl p-6 shadow-inner space-y-3">
+          <div className="flex items-center justify-center gap-2 text-red-900 font-black text-sm">
+            <span>⏱️</span>
+            <span>Mandatory 1-Week Cooling Period</span>
+          </div>
+
+          {isCoolingActive ? (
+            <div className="space-y-2 text-xs font-semibold text-gray-700">
+              <p>
+                To maintain healthcare compliance, a 7-day waiting period is enforced before you may re-submit a doctor application.
+              </p>
+              <div className="p-3 bg-red-50 rounded-xl border border-red-200 text-red-900 font-bold text-center">
+                ⏳ Days remaining until re-application unlocks: <span className="text-base font-black text-red-600">{coolingDaysRemaining} Day(s)</span>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2 text-xs font-semibold text-emerald-800 bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+              <p className="font-extrabold">✅ Your 1-week cooling period has expired!</p>
+              <p className="text-emerald-700">You may now re-submit your updated doctor verification form for admin review.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+          {!isCoolingActive ? (
+            <button
+              onClick={() => setAppStatus('none')}
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[#003893] text-white font-extrabold text-xs hover:bg-[#002868] shadow-lg transition"
+            >
+              📝 Re-Apply for Doctor Access Now →
+            </button>
+          ) : (
+            <button
+              disabled
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gray-200 text-gray-400 font-extrabold text-xs border border-gray-300 cursor-not-allowed"
+            >
+              🔒 Re-Apply Locked ({coolingDaysRemaining} days remaining)
+            </button>
+          )}
+
+          <button
+            onClick={() => router.push('/dashboard/patient')}
+            className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-white border border-gray-200 text-gray-700 font-extrabold text-xs hover:bg-gray-50 transition"
           >
             Go to Patient Dashboard
           </button>

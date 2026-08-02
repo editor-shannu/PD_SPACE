@@ -6,17 +6,18 @@ export async function GET(req: NextRequest) {
   try {
     await connectDB();
 
-    // 1. Query all users registered with role 'doctor' or 'admin'
+    // 1. Query all users registered with role 'doctor' or 'admin', excluding pending or rejected applications
     let registeredDoctors = await UserModel.find({
       role: { $in: ['doctor', 'admin'] },
+      doctorApplicationStatus: { $nin: ['pending', 'rejected'] },
     })
-      .select('name email role emrProfile')
+      .select('name email role emrProfile doctorProfile')
       .lean();
 
     // Map registered doctor portal users
     const doctorList = registeredDoctors.map((doc: any) => {
       // Determine department or default to General Medicine
-      const dept = doc.emrProfile?.department || 'General Medicine';
+      const dept = doc.doctorProfile?.department || doc.emrProfile?.department || 'General Medicine';
       return {
         id: doc._id.toString(),
         name: doc.name.startsWith('Dr.') ? doc.name : `Dr. ${doc.name}`,

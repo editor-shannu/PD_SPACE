@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
     // Sort by role (admins first, then doctors, then patients) and name
     const users = await UserModel.find(query)
-      .select('name email role isEmrCompleted emrProfile createdAt updatedAt')
+      .select('name email role isEmrCompleted emrProfile doctorApplicationStatus doctorProfile doctorRejectedAt doctorRejectionReason createdAt updatedAt')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -52,6 +52,10 @@ export async function GET(req: NextRequest) {
       role: u.role || 'patient',
       isEmrCompleted: !!u.isEmrCompleted,
       emrProfile: u.emrProfile,
+      doctorApplicationStatus: u.doctorApplicationStatus || 'none',
+      doctorProfile: u.doctorProfile || null,
+      doctorRejectedAt: u.doctorRejectedAt || null,
+      doctorRejectionReason: u.doctorRejectionReason || '',
       createdAt: u.createdAt || u.updatedAt || new Date().toISOString(),
     }));
 
@@ -64,7 +68,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/admin/users
- * Updates a user's role to manage doctor portal access.
+ * Updates a user's role and doctor application approval/rejection status.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -74,14 +78,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { userId, role } = body;
+    const { userId, role, action, reason } = body;
 
-    if (!userId || !role) {
-      return NextResponse.json({ success: false, error: 'User ID and Role are required' }, { status: 400 });
-    }
-
-    if (role !== 'doctor' && role !== 'patient') {
-      return NextResponse.json({ success: false, error: 'Invalid role assignment. Can only grant doctor or patient access.' }, { status: 400 });
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 });
     }
 
     await connectDB();
@@ -97,20 +97,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Cannot modify permissions for the primary administrator.' }, { status: 400 });
     }
 
-    userToModify.role = role;
+    if (action === 'approve' || role === 'doctor') {
+      userToModify.role = 'doctor';
+      userToModify.doctorApplicationStatus = 'approved';
+    } else if (action === 'reject') {
+      userToModify.role = 'patient';
+      userToModify.doctorApplicationStatus = 'rejected';
+      userToModify.doctorRejectedAt = new Date();
+      userToModify.doctorRejectionReason = reason || 'Verification requirements not met as determined by MediFlow Administrator.';
+    } else if (role === 'patient') {
+      userToModify.role = 'patient';
+      if (userToModify.doctorApplicationStatus === 'approved') {
+        userToModify.doctorApplicationStatus = 'rejected';
+        userToModify.doctorRejectedAt = new Date();
+      }
+    }
+
     await userToModify.save();
 
     return NextResponse.json({
       success: true,
-      message: `Successfully set role for ${userToModify.email} to ${role}`,
+      message: `Updated status for ${userToModify.email}. Status: ${userToModify.doctorApplicationStatus}, Role: ${userToModify.role}`,
       user: {
         id: userToModify._id.toString(),
         email: userToModify.email,
         role: userToModify.role,
+        doctorApplicationStatus: userToModify.doctorApplicationStatus,
       },
     });
   } catch (error: any) {
-    console.error('Update user role error:', error);
-    return NextResponse.json({ success: false, error: error.message || 'Failed to update user role' }, { status: 500 });
+    console.error('Update user status error:', error);
+    return NextResponse.json({ success: false, error: error.message || 'Failed to update user status' }, { status: 500 });
   }
 }
