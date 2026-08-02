@@ -97,6 +97,7 @@ export default function DoctorDashboardPage() {
     medications?: Array<{ name: string; dosage?: string; frequency?: string }>;
     alerts?: AlertItem[];
     timeline?: DocumentItem[];
+    pastConsultations?: AppointmentItem[];
   } | null>(null);
 
   const userRole = (session?.user as any)?.role || 'patient';
@@ -802,6 +803,72 @@ export default function DoctorDashboardPage() {
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* PAST SIGNED CONSULTATION REPORTS */}
+              <div className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-[#003893] flex items-center gap-1.5">
+                    <span>🩺</span> Past Signed Consultation Reports ({summaryData?.pastConsultations?.length || 0})
+                  </h3>
+                  <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Verified Doctor Visit Records
+                  </span>
+                </div>
+
+                {!summaryData?.pastConsultations || summaryData.pastConsultations.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-gray-400 font-medium bg-emerald-50/30 rounded-2xl border border-dashed border-emerald-100">
+                    No past signed checkup consultations recorded for this patient.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {summaryData.pastConsultations.map((app) => (
+                      <div
+                        key={app._id}
+                        className="p-5 rounded-2xl bg-emerald-50/50 border border-emerald-100 shadow-xs space-y-3"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200/60 pb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 font-black flex items-center justify-center text-base">
+                              ✍️
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-extrabold text-[#003893]">
+                                Consulting Physician: {app.doctorName}
+                              </h4>
+                              <p className="text-[10px] text-gray-500 font-semibold">
+                                Department: <span className="text-gray-700 font-bold">{app.department}</span> | Appt Date: {app.date}
+                              </p>
+                            </div>
+                          </div>
+
+                          <span className="px-2.5 py-1 bg-white text-emerald-800 border border-emerald-300 rounded-xl text-[10px] font-black self-start sm:self-auto">
+                            ✅ Finalized on {app.completedDetails?.completionDate || app.date}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                          <div className="p-3 bg-white rounded-xl border border-emerald-100 space-y-1">
+                            <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block">Clinical Notes / Examination</span>
+                            <p className="font-semibold text-gray-800 leading-relaxed">{app.completedDetails?.clinicalNotes || 'Checkup completed.'}</p>
+                          </div>
+
+                          <div className="p-3 bg-white rounded-xl border border-emerald-100 space-y-1">
+                            <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block">Test Results &amp; Vitals Summary</span>
+                            <p className="font-semibold text-gray-800 leading-relaxed">{app.completedDetails?.testResultsSummary || 'Vitals normal.'}</p>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 flex items-center justify-between text-[11px] text-emerald-900 font-semibold border-t border-emerald-200/60">
+                          <span>Doctor Signature Verification:</span>
+                          <span className="font-mono bg-white px-2.5 py-1 rounded-lg border border-emerald-300 text-emerald-900 font-bold">
+                            ✍️ {app.completedDetails?.doctorSignature || `${app.doctorName}, M.D.`}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* BOTTOM DISPLAY: Raw Medical Timeline (Document Collection) */}

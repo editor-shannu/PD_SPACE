@@ -10,6 +10,7 @@ import { connectDB } from '@/lib/db';
 import { UserModel } from '@/models/user';
 import { DocumentModel } from '@/models/document';
 import { AlertModel } from '@/models/alert';
+import { AppointmentModel } from '@/models/appointment';
 
 export async function POST(req: NextRequest) {
   try {
@@ -41,6 +42,11 @@ export async function POST(req: NextRequest) {
     // 2. Fetch full medical history timeline
     const timeline = await DocumentModel.find({ userId: patientId })
       .sort({ createdAt: -1 })
+      .lean();
+
+    // 2b. Fetch past signed completed consultations for this patient
+    const pastConsultations = await AppointmentModel.find({ patientId, status: 'completed' })
+      .sort({ updatedAt: -1 })
       .lean();
 
     // 3. Aggregate active medications
@@ -167,6 +173,7 @@ INSTRUCTIONS:
       medications: activeMedications,
       alerts,
       timeline,
+      pastConsultations,
     });
   } catch (error) {
     console.error('Doctor summary generation error:', error);

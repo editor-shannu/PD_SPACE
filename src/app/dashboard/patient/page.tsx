@@ -435,21 +435,57 @@ export default function PatientDashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {appointments.slice(0, 2).map((app) => (
-                  <div key={app._id || app.id} className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl p-4 flex flex-col justify-between hover:bg-white/80 transition-all duration-200 shadow-sm">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-base flex-shrink-0">🩺</span>
-                      <div className="min-w-0">
-                        <p className="text-[#003893] text-xs font-bold truncate">{app.doctorName}</p>
-                        <p className="text-[10px] text-gray-400 truncate">{app.department} Dept</p>
+                {appointments.slice(0, 3).map((app) => {
+                  const isDone = app.status === 'completed';
+                  return (
+                    <div
+                      key={app._id || app.id}
+                      className={`bg-white/70 backdrop-blur-xl border rounded-2xl p-4 flex flex-col justify-between hover:bg-white transition-all duration-200 shadow-sm space-y-2 ${
+                        isDone ? 'border-emerald-200 bg-emerald-50/30' : 'border-white/80'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-base flex-shrink-0">{isDone ? '✅' : '🩺'}</span>
+                          <div className="min-w-0">
+                            <p className="text-[#003893] text-xs font-black truncate">{app.doctorName}</p>
+                            <p className="text-[10px] text-gray-400 font-semibold truncate">{app.department} Dept</p>
+                          </div>
+                        </div>
+                        <span
+                          className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${
+                            isDone
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-amber-100 text-amber-800 border border-amber-200'
+                          }`}
+                        >
+                          {isDone ? 'Completed' : app.status}
+                        </span>
+                      </div>
+
+                      {isDone && app.completedDetails && (
+                        <div className="p-2.5 bg-white rounded-xl border border-emerald-100 text-[10px] space-y-1">
+                          <p className="font-extrabold text-emerald-900 truncate">
+                            Notes: <span className="font-medium text-gray-700">{app.completedDetails.clinicalNotes || 'Checkup finished.'}</span>
+                          </p>
+                          <div className="flex items-center justify-between font-mono text-[9px] text-emerald-800 pt-1 border-t border-emerald-50">
+                            <span>Doctor Signed:</span>
+                            <span className="font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                              ✍️ {app.completedDetails.doctorSignature || `${app.doctorName}, M.D.`}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between border-t border-gray-100/80 pt-2 text-[10px] font-bold text-gray-500">
+                        <span>🗓️ {app.date} at {app.time}</span>
+                        <Link href="/dashboard/patient/booking" className="text-[#2ab8d8] hover:underline font-extrabold">
+                          {isDone ? 'View Report →' : 'Details →'}
+                        </Link>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between border-t border-gray-100/60 mt-3 pt-2.5 text-[10px] font-bold text-gray-500">
-                      <span>🗓️ {app.date}</span>
-                      <span>🕒 {app.time}</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
