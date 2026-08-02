@@ -1,64 +1,137 @@
 /**
  * MediFlow — Login Page
- * Mobile-app style layout: constrained card centered on desktop, full-screen on mobile
- * Google Sign-In via Firebase popup → passes user fields to NextAuth
+ * - Uses redirect-based Google sign-in on mobile (popups blocked by mobile browsers)
+ * - Falls back to popup on desktop
+ * - Full PWA-ready mobile layout with install prompt
+ * - Scrollable, no-overlap mobile layout
  */
 
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { signInWithPopup } from 'firebase/auth';
+import {
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+} from 'firebase/auth';
 import { signIn } from 'next-auth/react';
 import { auth, googleProvider } from '@/lib/firebase';
 import Link from 'next/link';
 
-function LoginForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard/patient';
+/** Detect if the user is on a mobile device */
+function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+}
 
-  const [error, setError]       = useState('');
-  const [isLoading, setLoading] = useState(false);
+function LoginForm() {
+  const router     = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl  = searchParams.get('callbackUrl') || '/dashboard/patient';
+
+  const [error,     setError]     = useState('');
+  const [isLoading, setLoading]   = useState(false);
+  const [showInstall, setShowInstall] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isProcessingRedirect, setIsProcessingRedirect] = useState(true);
+
+  // Handle PWA install prompt
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstall(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler as EventListener);
+    return () => window.removeEventListener('beforeinstallprompt', handler as EventListener);
+  }, []);
+
+  // Handle the redirect result when the user returns from Google sign-in redirect
+  useEffect(() => {
+    const processRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          setLoading(true);
+          const user = result.user;
+          const nextAuthResult = await signIn('credentials', {
+            email:    user.email    ?? '',
+            name:     user.displayName ?? user.email?.split('@')[0] ?? 'Patient',
+            image:    user.photoURL ?? '',
+            uid:      user.uid      ?? '',
+            redirect: false,
+            callbackUrl,
+          });
+
+          if (!nextAuthResult?.ok) {
+            setError('Sign-in failed. Please try again.');
+            setLoading(false);
+            setIsProcessingRedirect(false);
+            return;
+          }
+          window.location.href = callbackUrl;
+          return;
+        }
+      } catch (err: any) {
+        if (err.code !== 'auth/no-auth-event') {
+          setError(err.message || 'Google sign-in failed. Please try again.');
+        }
+      }
+      setIsProcessingRedirect(false);
+    };
+    processRedirectResult();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') setShowInstall(false);
+    }
+  };
 
   const handleGoogleSignIn = async () => {
-    console.log('[DEBUG] Continue with Google clicked');
     setError('');
     setLoading(true);
     try {
-      console.log('[DEBUG] Calling signInWithPopup...');
-      const result = await signInWithPopup(auth, googleProvider);
-      const user   = result.user;
-      console.log('[DEBUG] signInWithPopup resolved, user:', user.email, user.uid);
-
-      console.log('[DEBUG] Calling NextAuth credentials signIn...');
-      const nextAuthResult = await signIn('credentials', {
-        email:    user.email    ?? '',
-        name:     user.displayName ?? user.email?.split('@')[0] ?? 'Patient',
-        image:    user.photoURL ?? '',
-        uid:      user.uid      ?? '',
-        redirect: false,
-        callbackUrl,
-      });
-      console.log('[DEBUG] NextAuth credentials signIn resolved:', nextAuthResult);
-
-      if (!nextAuthResult?.ok) {
-        console.error('[DEBUG] NextAuth error:', nextAuthResult?.error);
-        setError('Sign-in failed. Please try again.');
-        setLoading(false);
+      if (isMobileDevice()) {
+        // Mobile: use redirect (popups are blocked on mobile browsers)
+        await signInWithRedirect(auth, googleProvider);
+        // Execution will stop here; Google redirects the browser back to this page
         return;
-      }
+      } else {
+        // Desktop: use popup
+        const result      = await signInWithPopup(auth, googleProvider);
+        const user        = result.user;
+        const nextAuthResult = await signIn('credentials', {
+          email:    user.email    ?? '',
+          name:     user.displayName ?? user.email?.split('@')[0] ?? 'Patient',
+          image:    user.photoURL ?? '',
+          uid:      user.uid      ?? '',
+          redirect: false,
+          callbackUrl,
+        });
 
-      console.log('[DEBUG] Redirecting to callbackUrl:', callbackUrl);
-      window.location.href = callbackUrl;
+        if (!nextAuthResult?.ok) {
+          setError('Sign-in failed. Please try again.');
+          setLoading(false);
+          return;
+        }
+        window.location.href = callbackUrl;
+      }
     } catch (err: any) {
-      console.error('[DEBUG] Google sign-in error:', err);
       if (err.code === 'auth/popup-closed-by-user') {
         setError('Sign-in was cancelled. Please try again.');
       } else if (err.code === 'auth/popup-blocked') {
-        setError('Popup blocked — please allow popups for this site.');
+        // Popup was blocked — fall back to redirect
+        setError('');
+        await signInWithRedirect(auth, googleProvider);
       } else if (err.code === 'auth/network-request-failed') {
-        setError('Network error. Check your connection.');
+        setError('Network error. Check your internet connection.');
       } else {
         setError(err.message || 'Authentication failed. Please try again.');
       }
@@ -66,24 +139,61 @@ function LoginForm() {
     }
   };
 
+  // Show loading spinner while processing redirect result
+  if (isProcessingRedirect || (isLoading && typeof window !== 'undefined' && window.sessionStorage.getItem('googleRedirectPending'))) {
+    return (
+      <div className="min-h-screen w-full bg-[#2ab8d8] flex flex-col items-center justify-center gap-4">
+        <div className="w-14 h-14 rounded-[18px] bg-white/25 backdrop-blur-md border border-white/40 flex items-center justify-center shadow-xl">
+          <svg className="h-8 w-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>
+          </svg>
+        </div>
+        <div className="h-8 w-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+        <p className="text-white font-semibold text-sm">Completing sign-in...</p>
+      </div>
+    );
+  }
+
   return (
-    /* 
-     * Outer: fills full viewport with teal, centers the card.
-     * On mobile: card is full-screen (no gap).
-     * On desktop: card is phone-width, centered, with teal background visible around it.
-     */
-    <div className="min-h-screen w-full bg-[#2ab8d8] flex items-center justify-center">
-      {/* Phone-width card: full-screen on mobile, constrained + rounded on desktop */}
-      <div className="w-full md:max-w-sm md:rounded-[40px] md:overflow-hidden md:shadow-2xl flex flex-col min-h-screen md:min-h-[680px] md:h-auto">
+    <div className="min-h-screen w-full bg-[#2ab8d8] flex items-start justify-center overflow-y-auto">
+      {/* Card: full-screen on mobile, phone-width card on desktop */}
+      <div className="w-full md:max-w-sm md:my-8 md:rounded-[40px] md:overflow-hidden md:shadow-2xl flex flex-col">
+
+        {/* ── PWA Install Banner ────────────────────────── */}
+        {showInstall && (
+          <div className="bg-[#003893] px-4 py-3 flex items-center justify-between gap-3 md:rounded-t-[40px]">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">📲</span>
+              <div>
+                <p className="text-white text-xs font-bold leading-tight">Install MediFlow App</p>
+                <p className="text-white/70 text-[10px]">Add to home screen for instant access</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={handleInstallApp}
+                className="px-3 py-1.5 bg-white text-[#003893] rounded-xl text-[10px] font-black transition hover:bg-blue-50"
+              >
+                Install
+              </button>
+              <button
+                onClick={() => setShowInstall(false)}
+                className="text-white/60 hover:text-white text-xs px-1"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Top: Teal brand area ─────────────────────── */}
-        <div className="relative bg-[#2ab8d8] flex-1 flex flex-col items-center justify-center px-6 py-10 overflow-hidden">
+        <div className="relative bg-[#2ab8d8] flex flex-col items-center justify-center px-6 py-10 overflow-hidden min-h-[200px]">
           {/* Decorative blobs */}
-          <div className="absolute top-[-40px] left-[-40px] w-36 h-36 rounded-full bg-white/10" />
-          <div className="absolute bottom-[-20px] right-[-30px] w-28 h-28 rounded-full bg-white/10" />
-          <div className="absolute top-6 right-8 w-12 h-12 rounded-full bg-white/10" />
+          <div className="absolute top-[-40px] left-[-40px] w-36 h-36 rounded-full bg-white/10 pointer-events-none" />
+          <div className="absolute bottom-[-20px] right-[-30px] w-28 h-28 rounded-full bg-white/10 pointer-events-none" />
+          <div className="absolute top-6 right-8 w-12 h-12 rounded-full bg-white/10 pointer-events-none" />
 
-          {/* Logo icon */}
+          {/* Logo */}
           <div className="relative z-10 w-[72px] h-[72px] rounded-[22px] bg-white/25 backdrop-blur-md border border-white/40 flex items-center justify-center shadow-xl mb-4">
             <svg className="h-9 w-9 text-white drop-shadow" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>
@@ -94,13 +204,16 @@ function LoginForm() {
         </div>
 
         {/* ── Bottom: White form area ──────────────────── */}
-        <div className="bg-white rounded-t-[36px] md:rounded-none px-8 pt-8 pb-10 flex flex-col items-center gap-5">
+        <div className="bg-white rounded-t-[36px] md:rounded-none px-6 sm:px-8 pt-7 pb-10 flex flex-col items-center gap-4 w-full">
+
           <p className="text-gray-400 font-semibold text-xs uppercase tracking-widest">Sign in to your account</p>
 
-          {/* Error */}
+          {/* Error banner */}
           {error && (
-            <div className="w-full bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
-              <p className="text-red-500 text-xs font-medium text-center">{error}</p>
+            <div className="w-full bg-red-50 border border-red-100 rounded-2xl px-4 py-3 flex items-start gap-2">
+              <span className="text-red-400 mt-0.5 flex-shrink-0">⚠️</span>
+              <p className="text-red-500 text-xs font-medium leading-relaxed">{error}</p>
+              <button onClick={() => setError('')} className="ml-auto text-red-300 hover:text-red-500 text-xs flex-shrink-0">✕</button>
             </div>
           )}
 
@@ -110,8 +223,8 @@ function LoginForm() {
               e.preventDefault();
               setError('');
               setLoading(true);
-              const target = e.target as any;
-              const email = target.email.value.trim();
+              const target   = e.target as any;
+              const email    = target.email.value.trim();
               const password = target.password.value;
 
               if (!email || !password) {
@@ -121,7 +234,6 @@ function LoginForm() {
               }
 
               try {
-                console.log('[DEBUG] Credentials login clicked', email);
                 const nextAuthResult = await signIn('credentials', {
                   email,
                   password,
@@ -130,12 +242,11 @@ function LoginForm() {
                 });
 
                 if (!nextAuthResult?.ok) {
-                  setError(nextAuthResult?.error || 'Invalid email or password.');
+                  setError(nextAuthResult?.error || 'Invalid email or password. Please try again.');
                   setLoading(false);
                   return;
                 }
 
-                // Redirect based on role
                 const emailLower = email.toLowerCase().trim();
                 if (emailLower === 'mediflow@test.com' || emailLower === 'heallink.care@gmail.com') {
                   window.location.href = '/dashboard/admin';
@@ -143,7 +254,7 @@ function LoginForm() {
                   window.location.href = callbackUrl;
                 }
               } catch (err: any) {
-                setError(err.message || 'Authentication failed.');
+                setError(err.message || 'Authentication failed. Please try again.');
                 setLoading(false);
               }
             }}
@@ -155,8 +266,9 @@ function LoginForm() {
                 type="email"
                 name="email"
                 required
-                placeholder="mediflow@test.com"
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#2ab8d8] focus:bg-white text-gray-700 transition"
+                autoComplete="email"
+                placeholder="your@email.com"
+                className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#2ab8d8] focus:bg-white text-gray-700 transition"
               />
             </div>
             <div className="w-full">
@@ -165,23 +277,34 @@ function LoginForm() {
                 type="password"
                 name="password"
                 required
+                autoComplete="current-password"
                 placeholder="••••••••"
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#2ab8d8] focus:bg-white text-gray-700 transition"
+                className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#2ab8d8] focus:bg-white text-gray-700 transition"
               />
             </div>
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#2ab8d8] hover:bg-[#209bb6] active:scale-[0.98] disabled:bg-gray-300 text-white font-bold py-3.5 rounded-2xl shadow transition duration-200 text-xs mt-1"
+              className="w-full bg-[#2ab8d8] hover:bg-[#209bb6] active:scale-[0.98] disabled:bg-gray-300 text-white font-bold py-3.5 rounded-2xl shadow transition duration-200 text-sm mt-1 flex items-center justify-center gap-2"
             >
-              {isLoading ? 'Signing in...' : 'Sign In with Credentials'}
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Signing in...
+                </>
+              ) : (
+                'Sign In with Credentials'
+              )}
             </button>
           </form>
 
           {/* Divider */}
-          <div className="w-full flex items-center justify-between gap-3 text-gray-300 my-1">
+          <div className="w-full flex items-center gap-3">
             <div className="h-[1px] bg-gray-100 flex-1" />
-            <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">or</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">or</span>
             <div className="h-[1px] bg-gray-100 flex-1" />
           </div>
 
@@ -193,7 +316,7 @@ function LoginForm() {
           >
             {isLoading ? (
               <>
-                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
@@ -212,16 +335,28 @@ function LoginForm() {
             )}
           </button>
 
+          {/* iOS PWA tip */}
+          <div className="w-full bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3 flex items-start gap-2.5">
+            <span className="text-blue-400 text-base flex-shrink-0 mt-0.5">📱</span>
+            <div>
+              <p className="text-blue-700 text-[10px] font-bold uppercase tracking-wide mb-0.5">Install as App</p>
+              <p className="text-blue-600 text-[10px] leading-relaxed">
+                <strong>Android:</strong> Tap the browser menu → &quot;Add to Home Screen&quot;<br />
+                <strong>iOS Safari:</strong> Tap Share <span className="text-xs">⎙</span> → &quot;Add to Home Screen&quot;
+              </p>
+            </div>
+          </div>
+
           {process.env.NODE_ENV === 'development' && (
             <div className="w-full space-y-2">
+              <p className="text-center text-[10px] text-gray-400 font-bold uppercase tracking-widest">Dev Bypasses</p>
               <button
                 type="button"
                 onClick={async () => {
                   setError('');
                   setLoading(true);
                   try {
-                    console.log('[DEBUG] Dev Patient Bypass clicked');
-                    const nextAuthResult = await signIn('credentials', {
+                    const res = await signIn('credentials', {
                       email:    'test-patient@mediflow.care',
                       name:     'Test Patient',
                       image:    '',
@@ -229,21 +364,14 @@ function LoginForm() {
                       redirect: false,
                       callbackUrl,
                     });
-                    if (!nextAuthResult?.ok) {
-                      setError('Bypass failed: ' + (nextAuthResult?.error || 'unknown error'));
-                      setLoading(false);
-                      return;
-                    }
+                    if (!res?.ok) { setError('Bypass failed'); setLoading(false); return; }
                     window.location.href = callbackUrl;
-                  } catch (err: any) {
-                    setError('Bypass error: ' + err.message);
-                    setLoading(false);
-                  }
+                  } catch (err: any) { setError(err.message); setLoading(false); }
                 }}
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-3 bg-teal-600 hover:bg-teal-700 active:scale-[0.98] disabled:bg-gray-300 text-white font-bold py-3 rounded-2xl shadow transition-all duration-200 text-xs"
+                className="w-full py-3 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-300 text-white font-bold rounded-2xl text-xs transition"
               >
-                Patient Dev Bypass
+                🧪 Patient Dev Bypass
               </button>
               <button
                 type="button"
@@ -251,42 +379,29 @@ function LoginForm() {
                   setError('');
                   setLoading(true);
                   try {
-                    console.log('[DEBUG] Dev Admin Bypass clicked');
-                    const nextAuthResult = await signIn('credentials', {
-                      email:    'heallink.care@gmail.com',
-                      name:     'Admin User',
-                      image:    '',
-                      uid:      'dev-admin-123',
-                      redirect: false,
-                      callbackUrl: '/dashboard/admin',
+                    const res = await signIn('credentials', {
+                      email: 'heallink.care@gmail.com', name: 'Admin User', image: '', uid: 'dev-admin-123', redirect: false, callbackUrl: '/dashboard/admin',
                     });
-                    if (!nextAuthResult?.ok) {
-                      setError('Bypass failed: ' + (nextAuthResult?.error || 'unknown error'));
-                      setLoading(false);
-                      return;
-                    }
+                    if (!res?.ok) { setError('Bypass failed'); setLoading(false); return; }
                     window.location.href = '/dashboard/admin';
-                  } catch (err: any) {
-                    setError('Bypass error: ' + err.message);
-                    setLoading(false);
-                  }
+                  } catch (err: any) { setError(err.message); setLoading(false); }
                 }}
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-3 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] disabled:bg-gray-300 text-white font-bold py-3 rounded-2xl shadow transition-all duration-200 text-xs"
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white font-bold rounded-2xl text-xs transition"
               >
-                Admin Dev Bypass
+                🛡️ Admin Dev Bypass
               </button>
             </div>
           )}
 
           <p className="text-gray-400 text-xs text-center leading-relaxed">
-            By continuing, you agree to MediFlow's{' '}
+            By continuing, you agree to MediFlow&apos;s{' '}
             <span className="text-[#003893] font-semibold cursor-pointer hover:underline">Terms of Service</span>
             {' '}and{' '}
             <span className="text-[#003893] font-semibold cursor-pointer hover:underline">Privacy Policy</span>.
           </p>
 
-          <Link href="/" className="text-gray-400 text-sm hover:text-[#2ab8d8] transition">
+          <Link href="/" className="text-gray-400 text-sm hover:text-[#2ab8d8] transition pb-2">
             ← Back to home
           </Link>
         </div>
@@ -298,11 +413,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen w-full bg-[#2ab8d8] flex items-center justify-center">
-        <div className="text-white font-semibold text-sm">Loading...</div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen w-full bg-[#2ab8d8] flex items-center justify-center">
+          <div className="text-white font-semibold text-sm">Loading MediFlow...</div>
+        </div>
+      }
+    >
       <LoginForm />
     </Suspense>
   );
