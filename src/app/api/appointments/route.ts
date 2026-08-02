@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { connectDB } from '@/lib/db';
 import { AppointmentModel } from '@/models/appointment';
 import { UserModel } from '@/models/user';
+import { ReferralModel } from '@/models/referral';
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,19 +27,29 @@ export async function GET(req: NextRequest) {
 
     let appointments = [];
     if (isApprovedDoctor) {
-      // Return appointments assigned to doctor (matching doctorId or doctorName)
+      // Return appointments assigned to doctor (matching doctorId or doctorName or referred)
       const docName = currentUser?.name || (session.user as any).name || '';
       const cleanDocName = docName.replace(/^Dr\.\s*/i, '').trim();
+      const currentUserId = currentUser?._id?.toString() || userId;
 
-      const doctorFilter = userRole === 'admin'
-        ? {}
-        : {
-            $or: [
-              { doctorId: userId },
-              { doctorName: new RegExp(docName, 'i') },
-              { doctorName: new RegExp(cleanDocName, 'i') },
-            ],
-          };
+      let doctorFilter: any = {};
+      if (userRole !== 'admin') {
+        const referrals = await ReferralModel.find({
+          $or: [{ toDoctorId: currentUserId }, { toDoctorEmail: currentUser?.email }],
+        }).select('patientId').lean();
+
+        const referredPatientIds = referrals.map((r: any) => r.patientId).filter(Boolean);
+
+        doctorFilter = {
+          $or: [
+            { doctorId: userId },
+            { doctorId: currentUserId },
+            { doctorName: new RegExp(docName, 'i') },
+            { doctorName: new RegExp(cleanDocName, 'i') },
+            { patientId: { $in: referredPatientIds } },
+          ],
+        };
+      }
 
       appointments = await AppointmentModel.find(doctorFilter)
         .sort({ createdAt: -1 })

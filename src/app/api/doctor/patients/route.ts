@@ -1,6 +1,6 @@
 /**
  * GET /api/doctor/patients
- * Doctor-only endpoint to search and fetch patients in MongoDB.
+ * Doctor-only endpoint to search and fetch patients in MongoDB who booked with this doctor or were referred.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,6 +10,8 @@ import { connectDB } from '@/lib/db';
 import { UserModel } from '@/models/user';
 import { DocumentModel } from '@/models/document';
 import { AlertModel } from '@/models/alert';
+import { AppointmentModel } from '@/models/appointment';
+import { ReferralModel } from '@/models/referral';
 
 export async function GET(req: NextRequest) {
   try {
@@ -43,14 +45,78 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const search = (searchParams.get('search') || '').trim();
 
+    const currentUserId = currentUser._id.toString();
+    const docName = currentUser.name || (session.user as any).name || '';
+    const cleanDocName = docName.replace(/^Dr\.\s*/i, '').trim();
+
+    // If user is not admin, filter patient IDs assigned or referred to this specific doctor
+    let allowedPatientIds: Set<string> | null = null;
+
+    if (dbRole !== 'admin') {
+      allowedPatientIds = new Set<string>();
+
+      // 1. Find patient IDs from Appointments booked for this doctor
+      const appointments = await AppointmentModel.find({
+        $or: [
+          { doctorId: currentUserId },
+          { doctorName: new RegExp(docName, 'i') },
+          { doctorName: new RegExp(cleanDocName, 'i') },
+        ],
+      }).select('patientId').lean();
+
+      appointments.forEach((app: any) => {
+        if (app.patientId) allowedPatientIds!.add(app.patientId);
+      });
+
+      // 2. Find patient IDs from Referrals sent to or from this doctor
+      const referrals = await ReferralModel.find({
+        $or: [
+          { toDoctorId: currentUserId },
+          { toDoctorEmail: currentUser.email },
+          { fromDoctorId: currentUserId },
+          { fromDoctorEmail: currentUser.email },
+        ],
+      }).select('patientId').lean();
+
+      referrals.forEach((ref: any) => {
+        if (ref.patientId) allowedPatientIds!.add(ref.patientId);
+      });
+
+      // 3. Find patient IDs from Documents referencing this doctor
+      const docs = await DocumentModel.find({
+        'extractedData.doctor_name': new RegExp(cleanDocName, 'i'),
+      }).select('userId').lean();
+
+      docs.forEach((d: any) => {
+        if (d.userId) allowedPatientIds!.add(d.userId);
+      });
+    }
+
     // Query patients in UserModel (strictly excluding doctor and admin roles)
     let userQuery: any = { role: { $nin: ['doctor', 'admin'] } };
+
+    if (allowedPatientIds !== null) {
+      userQuery._id = { $in: Array.from(allowedPatientIds) };
+    }
+
     if (search) {
-      userQuery.$or = [
+      const searchOr = [
         { name: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
         { _id: search.match(/^[0-9a-fA-F]{24}$/) ? search : undefined },
       ].filter(Boolean);
+
+      if (userQuery._id) {
+        userQuery = {
+          $and: [
+            { role: { $nin: ['doctor', 'admin'] } },
+            { _id: userQuery._id },
+            { $or: searchOr },
+          ],
+        };
+      } else {
+        userQuery.$or = searchOr;
+      }
     }
 
     let users = await UserModel.find(userQuery).select('name email role createdAt').lean();
@@ -58,8 +124,6 @@ export async function GET(req: NextRequest) {
     // Find doctors and admins to exclude from orphan document patient IDs
     const nonPatientUsers = await UserModel.find({ role: { $in: ['doctor', 'admin'] } }).select('_id').lean();
     const nonPatientIdSet = new Set(nonPatientUsers.map((u: any) => u._id.toString()));
-
-    const documentPatientIds = await DocumentModel.distinct('userId');
 
     const patientList: any[] = [];
     const processedIds = new Set<string>();
@@ -79,29 +143,6 @@ export async function GET(req: NextRequest) {
         documentCount: docCount,
         alertCount,
       });
-    }
-
-    // Include any document patient IDs not in user table (and not doctor/admin)
-    for (const pId of documentPatientIds) {
-      if (typeof pId === 'string' && !processedIds.has(pId) && !nonPatientIdSet.has(pId)) {
-        processedIds.add(pId);
-
-        if (search && !pId.toLowerCase().includes(search.toLowerCase())) {
-          continue;
-        }
-
-        const docCount = await DocumentModel.countDocuments({ userId: pId });
-        const alertCount = await AlertModel.countDocuments({ patientId: pId });
-
-        patientList.push({
-          id: pId,
-          name: `Patient (${pId.substring(0, 8)}...)`,
-          email: `${pId}@patient.mediflow.internal`,
-          role: 'patient',
-          documentCount: docCount,
-          alertCount,
-        });
-      }
     }
 
     return NextResponse.json(

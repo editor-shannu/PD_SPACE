@@ -80,7 +80,19 @@ export default function DoctorDashboardPage() {
   // Appointments & Notifications State
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
-  const [activeTab, setActiveTab] = useState<'patients' | 'appointments' | 'consultation_logs'>('patients');
+  const [activeTab, setActiveTab] = useState<'patients' | 'appointments' | 'consultation_logs' | 'referrals'>('patients');
+
+  // Doctor Patient Referral State
+  const [availableDoctors, setAvailableDoctors] = useState<any[]>([]);
+  const [referralsList, setReferralsList] = useState<any[]>([]);
+  const [isReferModalOpen, setIsReferModalOpen] = useState(false);
+  const [referringPatient, setReferringPatient] = useState<{ id: string; name: string; email?: string } | null>(null);
+  const [targetDoctorId, setTargetDoctorId] = useState('');
+  const [referralReason, setReferralReason] = useState('');
+  const [referralNotes, setReferralNotes] = useState('');
+  const [isSubmittingReferral, setIsSubmittingReferral] = useState(false);
+  const [referralSuccessMsg, setReferralSuccessMsg] = useState('');
+  const [referralErrorMsg, setReferralErrorMsg] = useState('');
 
   // Checkup Completion Modal State
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentItem | null>(null);
@@ -246,11 +258,94 @@ export default function DoctorDashboardPage() {
     }
   }, [userRole, fetchPatients, fetchAppointments]);
 
+  // Fetch available doctors for referral
+  const fetchAvailableDoctors = useCallback(async () => {
+    try {
+      const res = await fetch('/api/doctors');
+      if (res.ok) {
+        const data = await res.json();
+        setAvailableDoctors(data.doctors || []);
+      }
+    } catch (err) {
+      console.error('Error fetching doctors for referral:', err);
+    }
+  }, []);
+
+  // Fetch referrals list
+  const fetchReferrals = useCallback(async () => {
+    try {
+      const res = await fetch('/api/doctor/refer');
+      if (res.ok) {
+        const data = await res.json();
+        setReferralsList(data.referrals || []);
+      }
+    } catch (err) {
+      console.error('Error fetching referrals:', err);
+    }
+  }, []);
+
+  // Open refer modal for patient
+  const handleOpenReferModal = (patient: { id: string; name: string; email?: string }) => {
+    setReferringPatient(patient);
+    setTargetDoctorId('');
+    setReferralReason('');
+    setReferralNotes('');
+    setReferralSuccessMsg('');
+    setReferralErrorMsg('');
+    setIsReferModalOpen(true);
+    fetchAvailableDoctors();
+  };
+
+  // Submit patient referral
+  const handleSubmitReferral = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!referringPatient || !targetDoctorId || !referralReason) {
+      setReferralErrorMsg('Please select a target doctor and provide a referral reason.');
+      return;
+    }
+    setIsSubmittingReferral(true);
+    setReferralErrorMsg('');
+    setReferralSuccessMsg('');
+
+    try {
+      const res = await fetch('/api/doctor/refer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId: referringPatient.id,
+          toDoctorId: targetDoctorId,
+          reason: referralReason,
+          clinicalNotes: referralNotes,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setReferralSuccessMsg(data.message || 'Patient referral submitted successfully!');
+        fetchReferrals();
+        fetchPatients(searchQuery);
+        fetchAppointments();
+        setTimeout(() => {
+          setIsReferModalOpen(false);
+        }, 1800);
+      } else {
+        setReferralErrorMsg(data.error || 'Failed to submit referral.');
+      }
+    } catch (err) {
+      console.error(err);
+      setReferralErrorMsg('Network error while submitting referral.');
+    } finally {
+      setIsSubmittingReferral(false);
+    }
+  };
+
   // Initial load
   useEffect(() => {
     if (status === 'authenticated') {
       const email = session?.user?.email?.toLowerCase().trim();
       setDocName(session?.user?.name || '');
+      fetchAvailableDoctors();
+      fetchReferrals();
       if (email === 'heallink.care@gmail.com' || email === 'mediflow@test.com' || userRole === 'admin') {
         setAppStatus('approved');
         fetchPatients('');
@@ -259,7 +354,7 @@ export default function DoctorDashboardPage() {
         checkDoctorApplicationStatus();
       }
     }
-  }, [status, session, userRole, checkDoctorApplicationStatus, fetchPatients, fetchAppointments]);
+  }, [status, session, userRole, checkDoctorApplicationStatus, fetchPatients, fetchAppointments, fetchAvailableDoctors, fetchReferrals]);
 
   // Handle patient selection
   const handleSelectPatient = (patientId: string) => {
@@ -722,7 +817,7 @@ export default function DoctorDashboardPage() {
 
       {/* Doctor Dashboard Navigation Tabs */}
       {!selectedPatientId && (
-        <div className="flex bg-white/80 backdrop-blur-xl border border-white p-1 rounded-2xl shadow-sm max-w-xl">
+        <div className="flex bg-white/80 backdrop-blur-xl border border-white p-1 rounded-2xl shadow-sm max-w-2xl">
           <button
             onClick={() => setActiveTab('patients')}
             className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition duration-200 ${
@@ -752,6 +847,16 @@ export default function DoctorDashboardPage() {
             }`}
           >
             📜 Consulted Logs ({appointments.filter((a) => a.status === 'completed').length})
+          </button>
+          <button
+            onClick={() => setActiveTab('referrals')}
+            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition duration-200 ${
+              activeTab === 'referrals'
+                ? 'bg-[#003893] text-white shadow-sm'
+                : 'text-gray-500 hover:text-[#003893]'
+            }`}
+          >
+            🔄 Referrals Log ({referralsList.length})
           </button>
         </div>
       )}
@@ -816,6 +921,16 @@ export default function DoctorDashboardPage() {
                           <p className="text-[10px] text-gray-400 font-semibold truncate max-w-[170px]">{patient.email}</p>
                         </div>
                       </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenReferModal({ id: patient.id, name: patient.name, email: patient.email });
+                        }}
+                        className="px-2.5 py-1 text-[10px] font-black bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition flex items-center gap-1 shadow-xs"
+                        title="Refer patient to another doctor"
+                      >
+                        Refer 🔄
+                      </button>
                     </div>
 
                     <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-[10px] font-extrabold">
@@ -918,16 +1033,33 @@ export default function DoctorDashboardPage() {
                             {app.status}
                           </span>
                           {!isCompleted ? (
-                            <button
-                              onClick={() => handleOpenCheckupModal(app)}
-                              className="px-3.5 py-2 bg-[#2ab8d8] hover:bg-[#1fa1bf] text-white rounded-xl text-xs font-extrabold shadow-sm transition flex items-center gap-1.5"
-                            >
-                              Complete Checkup 🩺
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleOpenReferModal({ id: app.patientId, name: app.patientName || 'Patient', email: app.patientEmail })}
+                                className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-extrabold transition flex items-center gap-1 shadow-xs"
+                                title="Refer patient to another doctor"
+                              >
+                                Refer 🔄
+                              </button>
+                              <button
+                                onClick={() => handleOpenCheckupModal(app)}
+                                className="px-3.5 py-2 bg-[#2ab8d8] hover:bg-[#1fa1bf] text-white rounded-xl text-xs font-extrabold shadow-sm transition flex items-center gap-1.5"
+                              >
+                                Complete Checkup 🩺
+                              </button>
+                            </div>
                           ) : (
-                            <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
-                              Checkup Signed &amp; Finalized
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleOpenReferModal({ id: app.patientId, name: app.patientName || 'Patient', email: app.patientEmail })}
+                                className="px-2.5 py-1 text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-bold transition flex items-center gap-1"
+                              >
+                                Refer 🔄
+                              </button>
+                              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
+                                Checkup Signed &amp; Finalized
+                              </span>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -955,7 +1087,7 @@ export default function DoctorDashboardPage() {
             )}
           </div>
         </div>
-      ) : (
+      ) : activeTab === 'consultation_logs' ? (
         /* Completed Consultation Logs View - restricted strictly to patients who consulted this doctor */
         <div className="space-y-4">
           <div className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-6 shadow-sm space-y-4">
@@ -1037,8 +1169,94 @@ export default function DoctorDashboardPage() {
             )}
           </div>
         </div>
-      )
       ) : (
+        /* Patient Referrals Log Screen */
+        <div className="space-y-4">
+          <div className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-extrabold text-[#003893] flex items-center gap-2">
+                  <span>🔄</span> Doctor-to-Doctor Patient Referrals Log
+                </h2>
+                <p className="text-xs text-gray-400 font-semibold mt-0.5">
+                  Track cross-consultation patient referrals and clinical record sharing between registered doctors.
+                </p>
+              </div>
+              <button
+                onClick={fetchReferrals}
+                className="px-3.5 py-2 text-xs font-bold text-[#003893] bg-[#003893]/10 hover:bg-[#003893]/20 rounded-2xl transition border border-[#003893]/20 self-start sm:self-auto"
+              >
+                🔄 Refresh Referrals
+              </button>
+            </div>
+
+            {referralsList.length === 0 ? (
+              <div className="p-12 text-center bg-indigo-50/40 rounded-2xl border border-dashed border-indigo-200 space-y-2">
+                <span className="text-3xl">🔄</span>
+                <h3 className="text-sm font-bold text-indigo-900">No Patient Referrals Recorded</h3>
+                <p className="text-xs text-gray-500 max-w-md mx-auto">
+                  When you or other doctors refer patients for specialized consultations, referral logs and shared data links will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {referralsList.map((ref: any) => {
+                  const isIncoming = ref.toDoctorEmail === session?.user?.email || ref.toDoctorId === (session?.user as any)?.id;
+                  return (
+                    <div
+                      key={ref._id}
+                      className="p-5 rounded-2xl bg-white border border-gray-100 hover:shadow-md transition space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg font-black ${
+                            isIncoming ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {isIncoming ? '📥' : '📤'}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-black text-[#003893]">
+                                Patient: {ref.patientName}
+                              </h3>
+                              <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase ${
+                                isIncoming ? 'bg-amber-100 text-amber-900 border border-amber-200' : 'bg-blue-100 text-blue-900 border border-blue-200'
+                              }`}>
+                                {isIncoming ? 'Incoming Referral' : 'Outgoing Referral'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 font-medium">
+                              From: <span className="font-bold text-gray-800">{ref.fromDoctorName}</span> ➡️ To: <span className="font-bold text-indigo-900">{ref.toDoctorName} ({ref.toDepartment})</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className="text-[10px] text-gray-400 font-semibold self-start sm:self-auto">
+                          🗓️ {new Date(ref.createdAt).toLocaleDateString()} @ {new Date(ref.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-xs">
+                        <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100 space-y-1">
+                          <span className="text-[10px] font-extrabold text-indigo-900 uppercase tracking-wider block">Reason for Clinical Referral</span>
+                          <p className="font-bold text-indigo-950">{ref.reason}</p>
+                        </div>
+
+                        {ref.clinicalNotes && (
+                          <div className="p-3 bg-gray-50 rounded-xl space-y-1">
+                            <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider block">Doctor Notes</span>
+                            <p className="font-semibold text-gray-700">{ref.clinicalNotes}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )) : (
         /* Selected Patient View — AI Pre-Consultation Summary + Alerts + Timeline */
         <div className="space-y-6">
           {isLoadingSummary ? (
@@ -1051,16 +1269,26 @@ export default function DoctorDashboardPage() {
             <>
               {/* TOP DISPLAY: AI Pre-Consultation Summary (4-5 lines plain English) */}
               <div className="bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-blue-600/10 border border-[#2ab8d8]/40 rounded-3xl p-6 shadow-md backdrop-blur-xl space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <span className="text-xl">✨</span>
                     <h2 className="text-sm font-black uppercase tracking-wider text-[#003893]">
                       AI Pre-Consultation Summary (Gemini Clinical Brief)
                     </h2>
                   </div>
-                  <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-[#003893] text-white">
-                    Patient: {summaryData?.patient?.name}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-[#003893] text-white">
+                      Patient: {summaryData?.patient?.name}
+                    </span>
+                    {summaryData?.patient && (
+                      <button
+                        onClick={() => handleOpenReferModal({ id: summaryData.patient!.id, name: summaryData.patient!.name, email: summaryData.patient!.email })}
+                        className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-[10px] font-extrabold shadow-sm transition flex items-center gap-1"
+                      >
+                        Refer Patient 🔄
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="bg-white/90 border border-sky-100 rounded-2xl p-4 shadow-inner text-xs font-semibold text-gray-800 leading-relaxed whitespace-pre-line space-y-2">
@@ -1396,6 +1624,114 @@ export default function DoctorDashboardPage() {
                     className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-2xl shadow-md transition disabled:bg-gray-300"
                   >
                     {isSubmittingCheckup ? 'Signing Checkup...' : 'Sign & Complete Checkup ✍️'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Doctor-to-Doctor Patient Referral Modal */}
+      {isReferModalOpen && referringPatient && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-gray-100 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🔄</span>
+                <div>
+                  <h3 className="text-base font-black text-[#003893]">Refer Patient to Doctor Specialist</h3>
+                  <p className="text-[10px] text-gray-400 font-bold">
+                    Patient: <span className="text-[#003893]">{referringPatient.name}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsReferModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 font-bold text-lg p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {referralSuccessMsg ? (
+              <div className="py-8 text-center space-y-3">
+                <div className="w-12 h-12 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                  ✓
+                </div>
+                <p className="text-sm font-black text-indigo-900">{referralSuccessMsg}</p>
+                <p className="text-xs text-gray-500">Patient access and records have been shared with the selected doctor.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmitReferral} className="space-y-4">
+                {referralErrorMsg && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-semibold">
+                    ⚠️ {referralErrorMsg}
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-gray-400 tracking-wider block mb-1">
+                    Select Target Doctor / Specialist
+                  </label>
+                  <select
+                    required
+                    value={targetDoctorId}
+                    onChange={(e) => setTargetDoctorId(e.target.value)}
+                    className="w-full p-3 text-xs font-bold text-[#003893] bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#003893]"
+                  >
+                    <option value="">-- Choose verified doctor --</option>
+                    {availableDoctors
+                      .filter((d: any) => d._id !== (session?.user as any)?.id && d.email !== session?.user?.email)
+                      .map((doc: any) => (
+                        <option key={doc._id} value={doc._id}>
+                          Dr. {doc.name} — {doc.department || 'General Medicine'} ({doc.email})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-gray-400 tracking-wider block mb-1">
+                    Reason for Referral
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={referralReason}
+                    onChange={(e) => setReferralReason(e.target.value)}
+                    placeholder="e.g. Cardiology consultation, second opinion, specialized surgery"
+                    className="w-full p-3 text-xs text-gray-800 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#003893]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-gray-400 tracking-wider block mb-1">
+                    Clinical Notes &amp; Handover Brief (Optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={referralNotes}
+                    onChange={(e) => setReferralNotes(e.target.value)}
+                    placeholder="Share clinical history, relevant symptoms, or diagnostic findings for the receiving physician..."
+                    className="w-full p-3 text-xs text-gray-800 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#003893]"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsReferModalOpen(false)}
+                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-bold rounded-2xl transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingReferral}
+                    className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-2xl shadow-md transition disabled:bg-gray-300"
+                  >
+                    {isSubmittingReferral ? 'Sending Referral...' : 'Send Referral 🔄'}
                   </button>
                 </div>
               </form>
