@@ -46,8 +46,10 @@ export async function GET(req: NextRequest) {
     const search = (searchParams.get('search') || '').trim();
 
     const currentUserId = currentUser._id.toString();
-    const docName = currentUser.name || (session.user as any).name || '';
-    const cleanDocName = docName.replace(/^Dr\.\s*/i, '').trim();
+    // Strip "Dr." prefix to get the base name, then build both forms
+    const rawName = (currentUser.name || (session.user as any).name || '').trim();
+    const baseName = rawName.replace(/^Dr\.\s*/i, '').trim();
+    const drName = `Dr. ${baseName}`;
 
     const viewAllPatients = searchParams.get('all') === 'true' && dbRole === 'admin';
 
@@ -57,12 +59,20 @@ export async function GET(req: NextRequest) {
     if (!viewAllPatients) {
       allowedPatientIds = new Set<string>();
 
+      // Build name conditions using substring matching (handles with/without Dr. prefix)
+      const nameConditions: any[] = [];
+      if (baseName) {
+        nameConditions.push({ doctorName: new RegExp(baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') });
+      }
+      if (drName !== baseName) {
+        nameConditions.push({ doctorName: new RegExp(drName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') });
+      }
+
       // 1. Find patient IDs from Appointments booked for this doctor
       const appointments = await AppointmentModel.find({
         $or: [
           { doctorId: currentUserId },
-          { doctorName: new RegExp(docName, 'i') },
-          { doctorName: new RegExp(cleanDocName, 'i') },
+          ...nameConditions,
         ],
       }).select('patientId').lean();
 
@@ -85,9 +95,9 @@ export async function GET(req: NextRequest) {
       });
 
       // 3. Find patient IDs from Documents referencing this doctor
-      if (cleanDocName) {
+      if (baseName) {
         const docs = await DocumentModel.find({
-          'extractedData.doctor_name': new RegExp(cleanDocName, 'i'),
+          'extractedData.doctor_name': new RegExp(baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'),
         }).select('userId').lean();
 
         docs.forEach((d: any) => {

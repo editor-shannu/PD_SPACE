@@ -30,52 +30,48 @@ export async function GET(req: NextRequest) {
 
     let appointments = [];
     if (isApprovedDoctor && !viewAll) {
-      // Return appointments assigned strictly to THIS doctor (matching doctorId or doctorName)
-      const docName = currentUser?.name || (session.user as any).name || '';
-      const cleanDocName = docName.replace(/^Dr\.\s*/i, '').trim();
+      // Build all name variants for this doctor
+      const rawName = (currentUser?.name || (session.user as any).name || '').trim();
+      // Strip "Dr." prefix to get the base name
+      const baseName = rawName.replace(/^Dr\.\s*/i, '').trim();
+      // Full name with Dr. prefix
+      const drName = `Dr. ${baseName}`;
+
       const currentUserId = currentUser?._id?.toString() || userId;
       const userEmail = (currentUser?.email || session.user.email || '').toLowerCase().trim();
 
+      // Get patient IDs referred TO this doctor
       const referrals = await ReferralModel.find({
         $or: [{ toDoctorId: currentUserId }, { toDoctorEmail: userEmail }],
       }).select('patientId').lean();
-
       const referredPatientIds = referrals.map((r: any) => r.patientId).filter(Boolean);
 
-      const nameOr: any[] = [];
-      if (cleanDocName) {
-        const escaped = cleanDocName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        nameOr.push({ doctorName: new RegExp(`^Dr\\.?\\s*${escaped}$`, 'i') });
-        nameOr.push({ doctorName: new RegExp(`^${escaped}$`, 'i') });
+      // Build name match conditions — substring (not anchored) so partial names also match
+      const nameConditions: any[] = [];
+      if (baseName) {
+        nameConditions.push({ doctorName: new RegExp(baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') });
       }
-      if (docName && docName !== cleanDocName) {
-        const escapedDoc = docName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        nameOr.push({ doctorName: new RegExp(escapedDoc, 'i') });
+      if (drName !== baseName) {
+        nameConditions.push({ doctorName: new RegExp(drName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') });
       }
 
-      const baseDoctorConditions: any[] = [
+      const idConditions: any[] = [
         { doctorId: userId },
         { doctorId: currentUserId },
-        ...nameOr,
       ];
+
+      const allDoctorConditions = [...idConditions, ...nameConditions];
 
       let doctorFilter: any;
       if (referredPatientIds.length > 0) {
         doctorFilter = {
           $or: [
-            ...baseDoctorConditions,
-            {
-              patientId: { $in: referredPatientIds },
-              $or: [
-                ...baseDoctorConditions,
-                { doctorId: { $exists: false } },
-                { doctorId: '' },
-              ],
-            },
+            ...allDoctorConditions,
+            { patientId: { $in: referredPatientIds }, $or: allDoctorConditions },
           ],
         };
       } else {
-        doctorFilter = { $or: baseDoctorConditions };
+        doctorFilter = { $or: allDoctorConditions };
       }
 
       appointments = await AppointmentModel.find(doctorFilter)
@@ -86,7 +82,7 @@ export async function GET(req: NextRequest) {
         .sort({ createdAt: -1 })
         .lean();
     } else {
-      // Patient appointments
+      // Patient: show only their own appointments
       appointments = await AppointmentModel.find({ patientId: userId })
         .sort({ createdAt: -1 })
         .lean();
