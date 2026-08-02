@@ -54,26 +54,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'API key not configured' }, { status: 500 });
     }
 
-    const prompt = `You are a medical triage assistant.
-Given the patient's symptoms and their recent medical history, recommend the most appropriate medical department, urgency level, and a concise clinical reasoning.
+    const prompt = `You are an expert clinical medical triage AI assistant trained on healthcare guidelines, ICD-11 triage standards, specialty referral protocols, and pharmacology.
+
+CRITICAL CLINICAL SAFETY RULES:
+1. Base your recommendation ONLY on the provided Patient Symptoms and explicit Patient History below.
+2. DO NOT invent, assume, or hallucinate unlisted past medical conditions, organ failure (such as MODS or pneumonia), or unmentioned historical diagnoses if they are not explicitly present in the provided list.
+3. If Diagnoses is "None recorded" or empty, assess ONLY the symptoms provided by the user.
 
 Patient Symptoms:
 "${symptoms}"
 
-Patient History:
+Patient History Recorded in System:
 - Diagnoses: ${diagnosesList}
-- Medications: ${medicationsList}
+- Active Medications: ${medicationsList}
 
 You must return a raw JSON object (and nothing else, no markdown codeblocks or prefix/suffix) conforming to this schema:
 {
-  "recommended_department": "Name of the medical department (e.g. Cardiology, Neurology, Pediatrics, Dermatology, General Medicine, Orthopedics, etc.)",
+  "recommended_department": "Name of the medical department (e.g. Infectious Disease, General Medicine, Cardiology, Neurology, Pediatrics, Dermatology, Emergency Medicine, Orthopedics, etc.)",
   "urgency_level": "routine" | "soon" | "urgent",
-  "reasoning": "A concise explanation of why this department is recommended and the triage level selected."
+  "reasoning": "A clear, intelligent clinical explanation of why this department is recommended and the triage level selected based ONLY on the input."
 }
 
 Ensure the output is valid JSON.`;
 
-    const modelsToTry = ['gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-pro', 'gemini-flash-latest'];
     let geminiResponse: Response | null = null;
     let lastError: any = null;
 

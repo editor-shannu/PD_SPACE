@@ -612,8 +612,11 @@ export default function DoctorDashboardPage() {
                   </span>
                 </div>
 
-                <div className="bg-white/90 border border-sky-100 rounded-2xl p-4 shadow-inner text-xs font-semibold text-gray-800 leading-relaxed whitespace-pre-line">
-                  {summaryData?.summary}
+                <div className="bg-white/90 border border-sky-100 rounded-2xl p-4 shadow-inner text-xs font-semibold text-gray-800 leading-relaxed whitespace-pre-line space-y-2">
+                  <p>{summaryData?.summary}</p>
+                  <p className="text-[10px] text-gray-400 font-medium italic border-t border-sky-100/60 pt-2 text-center">
+                    This is AI generated based on its knowledge, it may show mistakes. Please verify with appropriate doctors before making any decisions.
+                  </p>
                 </div>
               </div>
 

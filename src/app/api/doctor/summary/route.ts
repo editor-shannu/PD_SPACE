@@ -107,7 +107,7 @@ INSTRUCTIONS:
 2. You MUST explicitly call out and highlight any drug duplicate, drug conflict, or missed follow-up alerts present in the alerts list.
 3. Keep the text professional, concise, and structured for fast clinical reading. Do not use Markdown header blocks (# or ##), output plain readable paragraphs.`;
 
-      const modelsToTry = ['gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+      const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-pro', 'gemini-flash-latest'];
 
       for (const model of modelsToTry) {
         try {

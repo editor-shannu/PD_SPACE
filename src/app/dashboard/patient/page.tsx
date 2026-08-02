@@ -408,6 +408,9 @@ export default function PatientDashboard() {
                 >
                   Book Specialist
                 </Link>
+                <p className="text-[10px] text-gray-400 font-medium italic border-t border-gray-100 pt-2 text-center">
+                  This is AI generated based on its knowledge, it may show mistakes. Please verify with appropriate doctors before making any decisions.
+                </p>
               </div>
             )}
           </div>

@@ -250,11 +250,14 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
             </div>
 
             {explanation && (
-              <div className="bg-white border border-sky-100 rounded-xl p-4 text-xs font-medium text-gray-700 leading-relaxed shadow-sm animate-fade-in">
+              <div className="bg-white border border-sky-100 rounded-xl p-4 text-xs font-medium text-gray-700 leading-relaxed shadow-sm animate-fade-in space-y-2">
                 <p className="font-bold text-[#003893] text-[10px] uppercase tracking-wider mb-1.5">
                   Explanation ({selectedLang}):
                 </p>
-                {explanation}
+                <p>{explanation}</p>
+                <p className="text-[10px] text-gray-400 font-medium italic border-t border-gray-100 pt-2 text-center">
+                  This is AI generated based on its knowledge, it may show mistakes. Please verify with appropriate doctors before making any decisions.
+                </p>
               </div>
             )}
 

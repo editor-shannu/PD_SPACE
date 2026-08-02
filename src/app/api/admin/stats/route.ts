@@ -514,7 +514,7 @@ Analyze the following aggregated metrics for our hospital:
 
 Provide a single, short paragraph (strictly under 75 words) summarizing operational performance. Highlight the primary department bottleneck and patient compliance concerns, offering a direct clinical workflow solution. Do not include markdown bolding, lists, titles, or code blocks.`;
 
-      const modelsToTry = ['gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+      const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-pro', 'gemini-flash-latest'];
       let geminiResponse: Response | null = null;
       let lastError: any = null;
 
