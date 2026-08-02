@@ -10,6 +10,15 @@ interface Recommendation {
   reasoning: string;
 }
 
+interface DoctorOption {
+  id: string;
+  name: string;
+  email: string;
+  department: string;
+  slots: string[];
+  isRegisteredPortalUser?: boolean;
+}
+
 interface Appointment {
   _id?: string;
   id?: string;
@@ -17,8 +26,14 @@ interface Appointment {
   department: string;
   date: string;
   time: string;
-  status: 'pending' | 'confirmed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   urgency: 'routine' | 'soon' | 'urgent';
+  completedDetails?: {
+    completionDate?: string;
+    clinicalNotes?: string;
+    testResultsSummary?: string;
+    doctorSignature?: string;
+  };
   createdAt?: string;
 }
 
@@ -32,42 +47,13 @@ const departments = [
   'Infectious Diseases',
 ];
 
-interface MockDoctor {
-  name: string;
-  slots: string[];
-}
-
-const mockDoctors: Record<string, MockDoctor[]> = {
-  'General Medicine': [
-    { name: 'Dr. Gregory House', slots: ['11:00 AM', '02:00 PM', '04:30 PM'] },
-    { name: 'Dr. John Watson', slots: ['10:00 AM', '12:30 PM', '03:00 PM'] },
-  ],
-  'Cardiology': [
-    { name: 'Dr. Sarah Jenkins', slots: ['09:00 AM', '11:30 AM', '02:00 PM'] },
-    { name: 'Dr. Marcus Vance', slots: ['10:00 AM', '01:30 PM', '04:00 PM'] },
-  ],
-  'Neurology': [
-    { name: 'Dr. Elena Rostova', slots: ['09:30 AM', '11:00 AM', '03:30 PM'] },
-    { name: 'Dr. Raymond Holt', slots: ['10:30 AM', '02:30 PM', '05:00 PM'] },
-  ],
-  'Pediatrics': [
-    { name: 'Dr. Lisa Cuddy', slots: ['08:30 AM', '10:30 AM', '01:00 PM'] },
-  ],
-  'Dermatology': [
-    { name: 'Dr. Allison Cameron', slots: ['09:00 AM', '01:30 PM', '03:00 PM'] },
-  ],
-  'Orthopedics': [
-    { name: 'Dr. Robert Chase', slots: ['09:00 AM', '11:00 AM', '02:30 PM'] },
-  ],
-  'Infectious Diseases': [
-    { name: 'Dr. Anthony Fauci', slots: ['09:00 AM', '11:00 AM', '02:00 PM'] },
-    { name: 'Dr. Robert Gallo', slots: ['10:35 AM', '01:00 PM', '03:30 PM'] },
-  ],
-};
-
 function BookingFlow() {
   const [activeTab, setActiveTab] = useState<'book' | 'history'>('book');
   
+  // Registered doctors list fetched from server
+  const [registeredDoctors, setRegisteredDoctors] = useState<DoctorOption[]>([]);
+  const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
+
   // Symptom Analysis states
   const [symptoms, setSymptoms] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -76,6 +62,7 @@ function BookingFlow() {
 
   // Booking Form states
   const [selectedDept, setSelectedDept] = useState('');
+  const [selectedDocId, setSelectedDocId] = useState('');
   const [selectedDoc, setSelectedDoc] = useState('');
   const [selectedSlot, setSelectedSlot] = useState('');
   const [bookingDate, setBookingDate] = useState('');
@@ -92,25 +79,43 @@ function BookingFlow() {
   const facilityParam = searchParams.get('facility');
   const typeParam = searchParams.get('type');
 
+  // Fetch registered doctors from backend API
+  useEffect(() => {
+    (async () => {
+      setIsLoadingDoctors(true);
+      try {
+        const res = await fetch('/api/doctors');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.doctors) {
+            setRegisteredDoctors(data.doctors);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching registered doctors:', err);
+      } finally {
+        setIsLoadingDoctors(false);
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     if (facilityParam) {
-      // Find matching department in our local departments list
       const matchedDept = departments.find(
         (d) => d.toLowerCase() === facilityParam.toLowerCase()
       ) || 'General Medicine';
 
       setSelectedDept(matchedDept);
 
-      // Pre-fill first doctor of the department
-      const docs = mockDoctors[matchedDept] || [];
+      const docs = registeredDoctors.filter((d) => d.department.toLowerCase() === matchedDept.toLowerCase());
       if (docs.length > 0) {
         setSelectedDoc(docs[0].name);
-        if (docs[0].slots.length > 0) {
+        setSelectedDocId(docs[0].id);
+        if (docs[0].slots && docs[0].slots.length > 0) {
           setSelectedSlot(docs[0].slots[0]);
         }
       }
 
-      // Prefill symptoms if passed, otherwise use fallback
       const symptomsParam = searchParams.get('symptoms');
       if (symptomsParam) {
         setSymptoms(symptomsParam);
@@ -118,7 +123,6 @@ function BookingFlow() {
         setSymptoms(`Consultation regarding visit to nearby facility: ${facilityParam}.`);
       }
 
-      // Prefill recommendation if all details are passed
       const urgencyParam = searchParams.get('urgency');
       const reasoningParam = searchParams.get('reasoning');
       if (urgencyParam && reasoningParam) {
@@ -130,7 +134,6 @@ function BookingFlow() {
         setUrgency((urgencyParam as any) || 'routine');
       }
 
-      // Set booking date to tomorrow
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       const yyyy = tomorrow.getFullYear();
@@ -138,7 +141,7 @@ function BookingFlow() {
       const dd = String(tomorrow.getDate()).padStart(2, '0');
       setBookingDate(`${yyyy}-${mm}-${dd}`);
     }
-  }, [facilityParam, typeParam, searchParams]);
+  }, [facilityParam, typeParam, searchParams, registeredDoctors]);
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -190,15 +193,19 @@ function BookingFlow() {
         setUrgency(rec.urgency_level || 'routine');
 
         // Pre-fill doctor
-        const doctors = mockDoctors[matchedDept] || [];
+        const doctors = registeredDoctors.filter(
+          (d) => d.department.toLowerCase() === matchedDept.toLowerCase()
+        );
         if (doctors.length > 0) {
           const doc = doctors[0];
           setSelectedDoc(doc.name);
-          if (doc.slots.length > 0) {
+          setSelectedDocId(doc.id);
+          if (doc.slots && doc.slots.length > 0) {
             setSelectedSlot(doc.slots[0]);
           }
         } else {
           setSelectedDoc('');
+          setSelectedDocId('');
           setSelectedSlot('');
         }
 
@@ -222,17 +229,21 @@ function BookingFlow() {
   // Sync doctor slots when department changes manually
   const handleDeptChange = (dept: string) => {
     setSelectedDept(dept);
-    const docs = mockDoctors[dept] || [];
+    const docs = registeredDoctors.filter(
+      (d) => d.department.toLowerCase() === dept.toLowerCase()
+    );
     if (docs.length > 0) {
       const doc = docs[0];
       setSelectedDoc(doc.name);
-      if (doc.slots.length > 0) {
+      setSelectedDocId(doc.id);
+      if (doc.slots && doc.slots.length > 0) {
         setSelectedSlot(doc.slots[0]);
       } else {
         setSelectedSlot('');
       }
     } else {
       setSelectedDoc('');
+      setSelectedDocId('');
       setSelectedSlot('');
     }
   };
@@ -240,11 +251,19 @@ function BookingFlow() {
   // Sync slots when doctor changes manually
   const handleDocChange = (docName: string) => {
     setSelectedDoc(docName);
-    const docs = mockDoctors[selectedDept] || [];
+    const docs = registeredDoctors.filter(
+      (d) => d.department.toLowerCase() === selectedDept.toLowerCase()
+    );
     const foundDoc = docs.find((d) => d.name === docName);
-    if (foundDoc && foundDoc.slots.length > 0) {
-      setSelectedSlot(foundDoc.slots[0]);
+    if (foundDoc) {
+      setSelectedDocId(foundDoc.id);
+      if (foundDoc.slots && foundDoc.slots.length > 0) {
+        setSelectedSlot(foundDoc.slots[0]);
+      } else {
+        setSelectedSlot('');
+      }
     } else {
+      setSelectedDocId('');
       setSelectedSlot('');
     }
   };
@@ -264,6 +283,7 @@ function BookingFlow() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          doctorId: selectedDocId,
           doctorName: selectedDoc,
           department: selectedDept,
           date: bookingDate,
@@ -277,6 +297,7 @@ function BookingFlow() {
         setBookingSuccess(true);
         // Clear form
         setSelectedDoc('');
+        setSelectedDocId('');
         setSelectedSlot('');
         setBookingDate('');
         // Refresh history cache
@@ -297,8 +318,13 @@ function BookingFlow() {
     return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30';
   };
 
-  const availableDoctors = selectedDept ? mockDoctors[selectedDept] || [] : [];
-  const availableSlots = selectedDoc ? availableDoctors.find(d => d.name === selectedDoc)?.slots || [] : [];
+  const availableDoctors = selectedDept
+    ? registeredDoctors.filter((d) => d.department.toLowerCase() === selectedDept.toLowerCase())
+    : registeredDoctors;
+
+  const availableSlots = selectedDoc
+    ? availableDoctors.find((d) => d.name === selectedDoc)?.slots || ['09:00 AM', '11:00 AM', '02:00 PM', '04:00 PM']
+    : [];
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto px-1 pb-20 md:pb-8">
@@ -314,7 +340,7 @@ function BookingFlow() {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-[#003893] tracking-tight">Specialist Bookings</h1>
-          <p className="text-xs text-gray-400 font-semibold">Triage symptoms and schedule medical appointments</p>
+          <p className="text-xs text-gray-400 font-semibold">Registered doctors only &amp; Verified Checkup Certificates</p>
         </div>
       </div>
 
@@ -368,7 +394,7 @@ function BookingFlow() {
                 {isAnalyzing ? (
                   <>
                     <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Analyzing symptoms & history...
+                    Analyzing symptoms &amp; history...
                   </>
                 ) : (
                   'Analyze & Recommend Department'
@@ -405,13 +431,11 @@ function BookingFlow() {
           {/* Step 2: Appointment Scheduler */}
           <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-sm">
             <span className="inline-block bg-[#6366f1]/15 text-[#6366f1] text-[9px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-lg mb-3">
-              Step 2: Verification & Scheduling
+              Step 2: Registered Portal Doctors &amp; Scheduling
             </span>
             <h2 className="text-base font-black text-[#003893] mb-1">Verify and Book Appointment</h2>
             <p className="text-gray-400 text-xs mb-4">
-              {recommendation 
-                ? "The recommended details have been prefilled. Please review, adjust, and click Confirm to book."
-                : "Choose a department, doctor, and slot to schedule your consultation."}
+              Select a registered doctor from the provider portal to schedule your consultation.
             </p>
 
             {bookingSuccess ? (
@@ -423,7 +447,7 @@ function BookingFlow() {
                 </div>
                 <div>
                   <h3 className="text-base font-black text-[#003893]">Booking Confirmed!</h3>
-                  <p className="text-gray-400 text-xs mt-1">Your appointment has been successfully recorded.</p>
+                  <p className="text-gray-400 text-xs mt-1">Notification sent to doctor. Check your history for updates.</p>
                 </div>
                 <div className="flex gap-3 justify-center pt-2">
                   <button
@@ -433,6 +457,7 @@ function BookingFlow() {
                       setSymptoms('');
                       setSelectedDept('');
                       setSelectedDoc('');
+                      setSelectedDocId('');
                       setSelectedSlot('');
                       setBookingDate('');
                     }}
@@ -482,18 +507,22 @@ function BookingFlow() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Doctor selector */}
+                  {/* Registered Doctor selector */}
                   <div>
-                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Available Doctor</label>
+                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                      Registered Provider Portal Doctor {isLoadingDoctors && '(Loading...)'}
+                    </label>
                     <select
                       value={selectedDoc}
                       onChange={(e) => handleDocChange(e.target.value)}
-                      disabled={!selectedDept}
+                      disabled={!selectedDept || isLoadingDoctors}
                       className="w-full p-3 text-xs font-semibold text-[#003893] bg-white border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2ab8d8] disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
-                      <option value="">Select Doctor</option>
-                      {availableDoctors.map((doc) => (
-                        <option key={doc.name} value={doc.name}>{doc.name}</option>
+                      <option value="">Select Registered Doctor</option>
+                      {availableDoctors.map((doc: DoctorOption) => (
+                        <option key={doc.id || doc.name} value={doc.name}>
+                          {doc.name} {doc.isRegisteredPortalUser ? '✅ (Verified Portal Doctor)' : ''}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -516,7 +545,7 @@ function BookingFlow() {
                   <div>
                     <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-2">Available Time Slots</label>
                     <div className="flex flex-wrap gap-2">
-                      {availableSlots.map((slot) => (
+                      {availableSlots.map((slot: string) => (
                         <button
                           key={slot}
                           type="button"
@@ -572,38 +601,74 @@ function BookingFlow() {
             </div>
           ) : (
             <div className="space-y-3.5">
-              {appointments.map((app) => (
-                <div
-                  key={app._id || app.id}
-                  className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-sm transition shadow-sm"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-2xl bg-[#003893]/5 flex items-center justify-center flex-shrink-0">
-                      <span className="text-[#003893] text-lg font-black">🩺</span>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-[#003893]">{app.doctorName}</h3>
-                      <p className="text-xs text-gray-400 mt-0.5">{app.department} Department</p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-gray-100 text-gray-500 uppercase">
-                          🗓️ {app.date}
+              {appointments.map((app) => {
+                const isCompleted = app.status === 'completed';
+                return (
+                  <div
+                    key={app._id || app.id}
+                    className="bg-white/70 backdrop-blur-xl border border-white/90 rounded-2xl p-5 shadow-sm space-y-3"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-2xl bg-[#003893]/5 flex items-center justify-center flex-shrink-0">
+                          <span className="text-[#003893] text-lg font-black">{isCompleted ? '✅' : '🩺'}</span>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-[#003893]">{app.doctorName}</h3>
+                          <p className="text-xs text-gray-400 mt-0.5">{app.department} Department</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-gray-100 text-gray-500 uppercase">
+                              🗓️ {app.date}
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-gray-100 text-gray-500 uppercase">
+                              🕒 {app.time}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-center gap-2 border-t sm:border-t-0 border-gray-100 pt-3 sm:pt-0">
+                        <span className={`px-2.5 py-1 text-[10px] rounded-lg font-extrabold capitalize ${
+                          isCompleted
+                            ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                            : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                        }`}>
+                          {app.status}
                         </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-gray-100 text-gray-500 uppercase">
-                          🕒 {app.time}
+                        <span className={`px-2.5 py-0.5 text-[9px] rounded-lg border font-bold capitalize ${getUrgencyBadgeColor(app.urgency)}`}>
+                          {app.urgency} urgency
                         </span>
                       </div>
                     </div>
+
+                    {/* Doctor Checkup & Signature Card if Completed */}
+                    {isCompleted && app.completedDetails && (
+                      <div className="mt-3 p-4 bg-emerald-50/60 border border-emerald-200/80 rounded-xl space-y-2 text-xs">
+                        <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
+                          <span className="font-extrabold text-emerald-900 flex items-center gap-1.5">
+                            🩺 Doctor Completed Checkup Certificate
+                          </span>
+                          <span className="text-[10px] font-extrabold text-emerald-700">
+                            Checkup Date: {app.completedDetails.completionDate || app.date}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-extrabold text-emerald-800 uppercase block">Doctor Clinical Notes &amp; Test Summary</span>
+                          <p className="text-xs font-semibold text-emerald-950 mt-0.5">{app.completedDetails.clinicalNotes || 'Checkup completed. All parameters verified.'}</p>
+                          {app.completedDetails.testResultsSummary && (
+                            <p className="text-[11px] text-emerald-800 italic mt-1">Test Results: {app.completedDetails.testResultsSummary}</p>
+                          )}
+                        </div>
+                        <div className="pt-2 flex items-center justify-between text-[11px] font-black text-emerald-900 border-t border-emerald-200/60">
+                          <span>Doctor Digital Signature:</span>
+                          <span className="font-mono bg-white/80 px-2.5 py-1 rounded-lg border border-emerald-300 text-emerald-800 shadow-xs">
+                            ✍️ {app.completedDetails.doctorSignature || `${app.doctorName}, M.D.`}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-center gap-2 border-t sm:border-t-0 border-gray-100 pt-3 sm:pt-0">
-                    <span className="px-2.5 py-1 text-[10px] rounded-lg font-extrabold capitalize bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                      {app.status}
-                    </span>
-                    <span className={`px-2.5 py-0.5 text-[9px] rounded-lg border font-bold capitalize ${getUrgencyBadgeColor(app.urgency)}`}>
-                      {app.urgency} urgency
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -44,6 +44,27 @@ interface DocumentItem {
   };
 }
 
+interface AppointmentItem {
+  _id: string;
+  patientId: string;
+  patientName?: string;
+  patientEmail?: string;
+  patientPhone?: string;
+  doctorName: string;
+  department: string;
+  date: string;
+  time: string;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  urgency: 'routine' | 'soon' | 'urgent';
+  completedDetails?: {
+    completionDate?: string;
+    clinicalNotes?: string;
+    testResultsSummary?: string;
+    doctorSignature?: string;
+  };
+  createdAt?: string;
+}
+
 export default function DoctorDashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -56,6 +77,20 @@ export default function DoctorDashboardPage() {
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Appointments & Notifications State
+  const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
+  const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
+  const [activeTab, setActiveTab] = useState<'patients' | 'appointments'>('patients');
+
+  // Checkup Completion Modal State
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentItem | null>(null);
+  const [completionDate, setCompletionDate] = useState('');
+  const [clinicalNotes, setClinicalNotes] = useState('');
+  const [testResultsSummary, setTestResultsSummary] = useState('');
+  const [doctorSignature, setDoctorSignature] = useState('');
+  const [isSubmittingCheckup, setIsSubmittingCheckup] = useState(false);
+  const [checkupSuccessMsg, setCheckupSuccessMsg] = useState('');
+
   const [summaryData, setSummaryData] = useState<{
     patient?: { id: string; name: string; email: string };
     summary?: string;
@@ -64,9 +99,24 @@ export default function DoctorDashboardPage() {
     timeline?: DocumentItem[];
   } | null>(null);
 
-  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
-
   const userRole = (session?.user as any)?.role || 'patient';
+  const doctorName = session?.user?.name || 'Doctor';
+
+  // Fetch appointments for doctor portal
+  const fetchAppointments = useCallback(async () => {
+    setIsLoadingAppointments(true);
+    try {
+      const res = await fetch('/api/appointments');
+      if (res.ok) {
+        const data = await res.json();
+        setAppointments(data.appointments || []);
+      }
+    } catch (err) {
+      console.error('Error fetching doctor appointments:', err);
+    } finally {
+      setIsLoadingAppointments(false);
+    }
+  }, []);
 
   // Fetch list of patients
   const fetchPatients = useCallback(async (query: string = '') => {
@@ -119,14 +169,62 @@ export default function DoctorDashboardPage() {
     if (status === 'authenticated') {
       if (userRole === 'doctor' || userRole === 'admin') {
         fetchPatients('');
+        fetchAppointments();
       }
     }
-  }, [status, userRole, fetchPatients]);
+  }, [status, userRole, fetchPatients, fetchAppointments]);
 
   // Handle patient selection
   const handleSelectPatient = (patientId: string) => {
     setSelectedPatientId(patientId);
     fetchPatientSummary(patientId);
+  };
+
+  // Open checkup completion modal
+  const handleOpenCheckupModal = (app: AppointmentItem) => {
+    setSelectedAppointment(app);
+    setCompletionDate(new Date().toISOString().split('T')[0]);
+    setClinicalNotes('Patient checkup and vital signs verified. General condition stable.');
+    setTestResultsSummary('Routine blood profile and blood pressure within normal limits.');
+    setDoctorSignature(`Dr. ${doctorName.replace(/^Dr\.\s*/i, '')}, M.D. - Verified Digital Signature`);
+    setCheckupSuccessMsg('');
+  };
+
+  // Submit checkup completion
+  const handleCompleteCheckup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAppointment) return;
+
+    setIsSubmittingCheckup(true);
+    try {
+      const res = await fetch('/api/appointments', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appointmentId: selectedAppointment._id,
+          status: 'completed',
+          completionDate,
+          clinicalNotes,
+          testResultsSummary,
+          doctorSignature,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setCheckupSuccessMsg('Checkup marked as completed with doctor signature!');
+        setTimeout(() => {
+          setSelectedAppointment(null);
+          fetchAppointments();
+        }, 1200);
+      } else {
+        setErrorMsg(data.error || 'Failed to complete checkup');
+      }
+    } catch (err) {
+      setErrorMsg('Network error while completing checkup.');
+    } finally {
+      setIsSubmittingCheckup(false);
+    }
   };
 
   if (status === 'loading') {
@@ -181,7 +279,7 @@ export default function DoctorDashboardPage() {
               </span>
             </div>
             <p className="text-xs text-gray-400 font-semibold mt-0.5">
-              Pre-consultation AI Summary, Timeline &amp; Clinical Safety Alerts
+              Pre-consultation AI Summary, Appointment Queue &amp; Doctor Signatures
             </p>
           </div>
         </div>
@@ -208,6 +306,54 @@ export default function DoctorDashboardPage() {
         </div>
       </div>
 
+      {/* Real-Time Appointment Notification Alert Banner */}
+      {appointments.filter((a) => a.status === 'pending').length > 0 && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-3xl p-5 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-amber-900 font-black text-xs">
+              <span className="text-lg animate-bounce">🔔</span>
+              <span>
+                New Patient Appointment Notifications ({appointments.filter((a) => a.status === 'pending').length} Pending)
+              </span>
+            </div>
+            <button
+              onClick={() => setActiveTab('appointments')}
+              className="px-3 py-1 bg-amber-600 text-white rounded-xl text-[10px] font-extrabold shadow hover:bg-amber-700 transition"
+            >
+              View Appointment Queue ➡️
+            </button>
+          </div>
+          <div className="space-y-2">
+            {appointments
+              .filter((a) => a.status === 'pending')
+              .slice(0, 3)
+              .map((app) => (
+                <div
+                  key={app._id}
+                  className="bg-white/90 p-3 rounded-2xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-[#003893]">
+                      👤 {app.patientName || `Patient (${app.patientId.slice(0, 6)})`}
+                    </span>
+                    <span className="text-gray-500">booked an appointment for</span>
+                    <span className="font-bold text-amber-800">{app.department}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] font-extrabold text-gray-600">
+                    <span className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md">🗓️ {app.date} @ {app.time}</span>
+                    <button
+                      onClick={() => handleOpenCheckupModal(app)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg transition"
+                    >
+                      Complete Checkup 🩺
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
       {errorMsg && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
           <span className="text-lg">⚠️</span>
@@ -215,11 +361,38 @@ export default function DoctorDashboardPage() {
         </div>
       )}
 
+      {/* Doctor Dashboard Navigation Tabs */}
+      {!selectedPatientId && (
+        <div className="flex bg-white/80 backdrop-blur-xl border border-white p-1 rounded-2xl shadow-sm max-w-md">
+          <button
+            onClick={() => setActiveTab('patients')}
+            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition duration-200 ${
+              activeTab === 'patients'
+                ? 'bg-[#003893] text-white shadow-sm'
+                : 'text-gray-500 hover:text-[#003893]'
+            }`}
+          >
+            👥 Patient Summaries ({patients.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('appointments')}
+            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition duration-200 ${
+              activeTab === 'appointments'
+                ? 'bg-[#003893] text-white shadow-sm'
+                : 'text-gray-500 hover:text-[#003893]'
+            }`}
+          >
+            📅 Appointments Queue ({appointments.length})
+          </button>
+        </div>
+      )}
+
       {/* Main Doctor Screen */}
       {!selectedPatientId ? (
-        /* Patient Search & Selection Screen */
-        <div className="space-y-4">
-          <div className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-6 shadow-sm space-y-4">
+        activeTab === 'patients' ? (
+          /* Patient Search & Selection Screen */
+          <div className="space-y-4">
+            <div className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-6 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-extrabold text-[#003893]">Select a Patient for Pre-Consultation Summary</h2>
@@ -294,6 +467,126 @@ export default function DoctorDashboardPage() {
             )}
           </div>
         </div>
+      ) : (
+        /* Appointments Queue Screen */
+        <div className="space-y-4">
+          <div className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-extrabold text-[#003893]">Patient Appointments Queue &amp; Clinical Completion</h2>
+                <p className="text-xs text-gray-400 font-medium">
+                  Review booked appointments, record clinical notes, and sign off checkups upon patient visit completion.
+                </p>
+              </div>
+              <button
+                onClick={fetchAppointments}
+                disabled={isLoadingAppointments}
+                className="px-3.5 py-2 text-xs font-bold text-[#003893] bg-[#003893]/10 hover:bg-[#003893]/20 rounded-2xl transition border border-[#003893]/20 self-start sm:self-auto"
+              >
+                {isLoadingAppointments ? 'Refreshing Queue...' : '🔄 Refresh Queue'}
+              </button>
+            </div>
+
+            {isLoadingAppointments ? (
+              <div className="space-y-3 py-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-20 bg-gray-100/80 animate-pulse rounded-2xl" />
+                ))}
+              </div>
+            ) : appointments.length === 0 ? (
+              <div className="py-12 text-center text-xs text-gray-400 font-medium bg-white/50 rounded-2xl border border-dashed border-gray-200">
+                No appointments currently assigned or scheduled.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {appointments.map((app) => {
+                  const isCompleted = app.status === 'completed';
+                  return (
+                    <div
+                      key={app._id}
+                      className="p-5 rounded-2xl bg-white border border-gray-100 hover:shadow-md transition-all space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-start gap-4">
+                          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl shadow-xs ${
+                            isCompleted ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {isCompleted ? '✅' : '🩺'}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-black text-[#003893]">
+                                Patient: {app.patientName || `User ID: ${app.patientId.slice(0, 8)}`}
+                              </h3>
+                              <span className={`px-2 py-0.5 text-[9px] font-extrabold rounded-lg capitalize ${
+                                app.urgency === 'urgent'
+                                  ? 'bg-red-100 text-red-700 border border-red-200'
+                                  : app.urgency === 'soon'
+                                  ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                                  : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                              }`}>
+                                {app.urgency} urgency
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 font-semibold mt-0.5">
+                              Dept: <span className="text-gray-800">{app.department}</span> | Doctor: <span className="text-[#003893]">{app.doctorName}</span>
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] font-extrabold text-gray-500">
+                              <span className="bg-gray-100 px-2.5 py-1 rounded-lg">🗓️ Date: {app.date}</span>
+                              <span className="bg-gray-100 px-2.5 py-1 rounded-lg">🕒 Time: {app.time}</span>
+                              {app.patientEmail && <span className="bg-blue-50 text-blue-800 px-2.5 py-1 rounded-lg">✉️ {app.patientEmail}</span>}
+                              {app.patientPhone && <span className="bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg">📞 {app.patientPhone}</span>}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex sm:flex-col items-start sm:items-end justify-between gap-2 border-t sm:border-t-0 border-gray-100 pt-3 sm:pt-0">
+                          <span className={`px-3 py-1 text-xs font-black rounded-xl capitalize ${
+                            isCompleted
+                              ? 'bg-emerald-500 text-white shadow-xs'
+                              : 'bg-amber-500 text-white shadow-xs'
+                          }`}>
+                            {app.status}
+                          </span>
+                          {!isCompleted ? (
+                            <button
+                              onClick={() => handleOpenCheckupModal(app)}
+                              className="px-3.5 py-2 bg-[#2ab8d8] hover:bg-[#1fa1bf] text-white rounded-xl text-xs font-extrabold shadow-sm transition flex items-center gap-1.5"
+                            >
+                              Complete Checkup 🩺
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
+                              Checkup Signed &amp; Finalized
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Display Completed Certificate preview if completed */}
+                      {isCompleted && app.completedDetails && (
+                        <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-1.5 text-xs text-emerald-950">
+                          <div className="flex items-center justify-between text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider">
+                            <span>Clinical Checkup Details</span>
+                            <span>Signed on: {app.completedDetails.completionDate}</span>
+                          </div>
+                          <p className="font-semibold text-emerald-900">{app.completedDetails.clinicalNotes}</p>
+                          {app.completedDetails.testResultsSummary && (
+                            <p className="text-[11px] text-emerald-800 italic">Tests: {app.completedDetails.testResultsSummary}</p>
+                          )}
+                          <div className="pt-1.5 text-right font-mono text-[11px] font-black text-emerald-800 border-t border-emerald-200/50">
+                            Doctor Signature: <span className="bg-white px-2 py-0.5 rounded border border-emerald-300">✍️ {app.completedDetails.doctorSignature}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )
       ) : (
         /* Selected Patient View — AI Pre-Consultation Summary + Alerts + Timeline */
         <div className="space-y-6">
@@ -481,6 +774,113 @@ export default function DoctorDashboardPage() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Doctor Checkup & Signature Completion Modal */}
+      {selectedAppointment && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-gray-100 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🩺</span>
+                <div>
+                  <h3 className="text-base font-black text-[#003893]">Doctor Clinical Visit Sign-Off</h3>
+                  <p className="text-[10px] text-gray-400 font-bold">
+                    Mark visit completed for {selectedAppointment.patientName || 'Patient'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedAppointment(null)}
+                className="text-gray-400 hover:text-gray-600 font-bold text-lg p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {checkupSuccessMsg ? (
+              <div className="py-8 text-center space-y-3">
+                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                  ✓
+                </div>
+                <p className="text-sm font-black text-emerald-800">{checkupSuccessMsg}</p>
+              </div>
+            ) : (
+              <form onSubmit={handleCompleteCheckup} className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-gray-400 tracking-wider block mb-1">
+                    Checkup Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={completionDate}
+                    onChange={(e) => setCompletionDate(e.target.value)}
+                    className="w-full p-3 text-xs font-semibold text-[#003893] bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2ab8d8]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-gray-400 tracking-wider block mb-1">
+                    Clinical Notes &amp; Observations
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={clinicalNotes}
+                    onChange={(e) => setClinicalNotes(e.target.value)}
+                    placeholder="Enter clinical examination notes, recommendations, and status..."
+                    className="w-full p-3 text-xs text-gray-800 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2ab8d8]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-gray-400 tracking-wider block mb-1">
+                    Test / Lab Results Summary (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={testResultsSummary}
+                    onChange={(e) => setTestResultsSummary(e.target.value)}
+                    placeholder="e.g. ECG normal, Blood glucose 95 mg/dL"
+                    className="w-full p-3 text-xs text-gray-800 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2ab8d8]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-gray-400 tracking-wider block mb-1">
+                    Doctor Digital Signature
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={doctorSignature}
+                    onChange={(e) => setDoctorSignature(e.target.value)}
+                    placeholder="Dr. Full Name, M.D. - Digital Signature"
+                    className="w-full p-3 text-xs font-mono font-bold text-emerald-800 bg-emerald-50/50 border border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAppointment(null)}
+                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-bold rounded-2xl transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingCheckup}
+                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-2xl shadow-md transition disabled:bg-gray-300"
+                  >
+                    {isSubmittingCheckup ? 'Signing Checkup...' : 'Sign & Complete Checkup ✍️'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       )}
     </div>
