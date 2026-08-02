@@ -25,33 +25,64 @@ export async function GET(req: NextRequest) {
       session.user.email === 'heallink.care@gmail.com' ||
       session.user.email === 'mediflow@test.com';
 
+    const { searchParams } = new URL(req.url);
+    const viewAll = searchParams.get('all') === 'true' && userRole === 'admin';
+
     let appointments = [];
-    if (isApprovedDoctor) {
-      // Return appointments assigned to doctor (matching doctorId or doctorName or referred)
+    if (isApprovedDoctor && !viewAll) {
+      // Return appointments assigned strictly to THIS doctor (matching doctorId or doctorName)
       const docName = currentUser?.name || (session.user as any).name || '';
       const cleanDocName = docName.replace(/^Dr\.\s*/i, '').trim();
       const currentUserId = currentUser?._id?.toString() || userId;
+      const userEmail = (currentUser?.email || session.user.email || '').toLowerCase().trim();
 
-      let doctorFilter: any = {};
-      if (userRole !== 'admin') {
-        const referrals = await ReferralModel.find({
-          $or: [{ toDoctorId: currentUserId }, { toDoctorEmail: currentUser?.email }],
-        }).select('patientId').lean();
+      const referrals = await ReferralModel.find({
+        $or: [{ toDoctorId: currentUserId }, { toDoctorEmail: userEmail }],
+      }).select('patientId').lean();
 
-        const referredPatientIds = referrals.map((r: any) => r.patientId).filter(Boolean);
+      const referredPatientIds = referrals.map((r: any) => r.patientId).filter(Boolean);
 
+      const nameOr: any[] = [];
+      if (cleanDocName) {
+        const escaped = cleanDocName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        nameOr.push({ doctorName: new RegExp(`^Dr\\.?\\s*${escaped}$`, 'i') });
+        nameOr.push({ doctorName: new RegExp(`^${escaped}$`, 'i') });
+      }
+      if (docName && docName !== cleanDocName) {
+        const escapedDoc = docName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        nameOr.push({ doctorName: new RegExp(escapedDoc, 'i') });
+      }
+
+      const baseDoctorConditions: any[] = [
+        { doctorId: userId },
+        { doctorId: currentUserId },
+        ...nameOr,
+      ];
+
+      let doctorFilter: any;
+      if (referredPatientIds.length > 0) {
         doctorFilter = {
           $or: [
-            { doctorId: userId },
-            { doctorId: currentUserId },
-            { doctorName: new RegExp(docName, 'i') },
-            { doctorName: new RegExp(cleanDocName, 'i') },
-            { patientId: { $in: referredPatientIds } },
+            ...baseDoctorConditions,
+            {
+              patientId: { $in: referredPatientIds },
+              $or: [
+                ...baseDoctorConditions,
+                { doctorId: { $exists: false } },
+                { doctorId: '' },
+              ],
+            },
           ],
         };
+      } else {
+        doctorFilter = { $or: baseDoctorConditions };
       }
 
       appointments = await AppointmentModel.find(doctorFilter)
+        .sort({ createdAt: -1 })
+        .lean();
+    } else if (viewAll) {
+      appointments = await AppointmentModel.find({})
         .sort({ createdAt: -1 })
         .lean();
     } else {

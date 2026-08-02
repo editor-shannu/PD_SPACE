@@ -49,10 +49,12 @@ export async function GET(req: NextRequest) {
     const docName = currentUser.name || (session.user as any).name || '';
     const cleanDocName = docName.replace(/^Dr\.\s*/i, '').trim();
 
-    // If user is not admin, filter patient IDs assigned or referred to this specific doctor
+    const viewAllPatients = searchParams.get('all') === 'true' && dbRole === 'admin';
+
+    // Filter patient IDs assigned or referred to this specific doctor
     let allowedPatientIds: Set<string> | null = null;
 
-    if (dbRole !== 'admin') {
+    if (!viewAllPatients) {
       allowedPatientIds = new Set<string>();
 
       // 1. Find patient IDs from Appointments booked for this doctor
@@ -83,13 +85,15 @@ export async function GET(req: NextRequest) {
       });
 
       // 3. Find patient IDs from Documents referencing this doctor
-      const docs = await DocumentModel.find({
-        'extractedData.doctor_name': new RegExp(cleanDocName, 'i'),
-      }).select('userId').lean();
+      if (cleanDocName) {
+        const docs = await DocumentModel.find({
+          'extractedData.doctor_name': new RegExp(cleanDocName, 'i'),
+        }).select('userId').lean();
 
-      docs.forEach((d: any) => {
-        if (d.userId) allowedPatientIds!.add(d.userId);
-      });
+        docs.forEach((d: any) => {
+          if (d.userId) allowedPatientIds!.add(d.userId);
+        });
+      }
     }
 
     // Query patients in UserModel (strictly excluding doctor and admin roles)
