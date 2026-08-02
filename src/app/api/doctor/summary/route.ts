@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    // 1. Fetch Patient profile
-    const patientUser: any = await UserModel.findById(patientId).select('name email role').lean().catch(() => null);
+    // 1. Fetch Patient profile & EMR details
+    const patientUser: any = await UserModel.findById(patientId).select('name email role emrProfile isEmrCompleted').lean().catch(() => null);
 
     // 2. Fetch full medical history timeline
     const timeline = await DocumentModel.find({ userId: patientId })
@@ -72,10 +72,17 @@ export async function POST(req: NextRequest) {
     let aiSummary = '';
 
     if (apiKey) {
+      const emr = patientUser?.emrProfile || {};
       const prompt = `You are a clinical AI assistant generating a concise 4-5 line plain-English pre-consultation summary for an attending physician prior to seeing the patient.
 
-Patient Details:
-- Name/ID: ${patientUser?.name || patientId}
+Patient Identity & Mandatory EMR Profile:
+- Name: ${patientUser?.name || patientId}
+- Blood Group: ${emr.bloodGroup || 'Not specified'}
+- Gender: ${emr.gender || 'Not specified'}, Age/DOB: ${emr.age || emr.dob || 'Not specified'}
+- Pre-existing Conditions: ${emr.preExistingConditions || 'None reported'}
+- Known Allergies: ${emr.allergies || 'No known allergies'}
+- Current Patient Medications: ${emr.currentMedications || 'None reported'}
+- Emergency Contact: ${emr.emergencyContactName ? `${emr.emergencyContactName} (${emr.emergencyContactPhone})` : emr.emergencyContactPhone || 'Not specified'}
 - Total Medical Documents: ${timeline.length}
 
 Active Medications:
@@ -153,6 +160,8 @@ INSTRUCTIONS:
         id: patientId,
         name: patientUser?.name || `Patient (${patientId.substring(0, 8)})`,
         email: patientUser?.email || '',
+        emrProfile: patientUser?.emrProfile || null,
+        isEmrCompleted: !!patientUser?.isEmrCompleted,
       },
       summary: aiSummary,
       medications: activeMedications,

@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const emrProfile = body.emrProfile || body;
 
-    // Validate compulsory required fields
+    // Validate compulsory required fields for clinical analysis
     if (!emrProfile?.fullName?.trim()) {
       return NextResponse.json(
         { success: false, error: 'Full Name is required' },
@@ -80,9 +80,51 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!emrProfile?.gender?.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Gender selection is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!emrProfile?.bloodGroup?.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Blood Group selection is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!emrProfile?.dob?.trim() && !emrProfile?.age) {
+      return NextResponse.json(
+        { success: false, error: 'Either Date of Birth or Age is required' },
+        { status: 400 }
+      );
+    }
+
     if (!emrProfile?.emergencyContactPhone?.trim()) {
       return NextResponse.json(
         { success: false, error: 'Emergency contact phone number is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!emrProfile?.preExistingConditions?.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Pre-existing medical conditions field is required (enter "None" if none)' },
+        { status: 400 }
+      );
+    }
+
+    if (!emrProfile?.allergies?.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Allergies field is required (enter "None" if none)' },
+        { status: 400 }
+      );
+    }
+
+    if (!emrProfile?.currentMedications?.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Current medications field is required (enter "None" if none)' },
         { status: 400 }
       );
     }

@@ -83,17 +83,41 @@ export default function EmrFormModal({
     e.preventDefault();
     setErrorMsg('');
 
-    // Strict Client-side Validations
+    // Strict Client-side Validations for Doctor & Clinical Analysis
     if (!formData.fullName?.trim()) {
-      setErrorMsg('Please enter your full name.');
+      setErrorMsg('Full Name is required.');
       return;
     }
     if (!formData.phone?.trim()) {
-      setErrorMsg('Please enter your primary phone/contact number.');
+      setErrorMsg('Primary Phone Number is required.');
+      return;
+    }
+    if (!formData.gender?.trim()) {
+      setErrorMsg('Gender selection is required.');
+      return;
+    }
+    if (!formData.bloodGroup?.trim()) {
+      setErrorMsg('Blood Group selection is required.');
+      return;
+    }
+    if (!formData.dob?.trim() && !formData.age) {
+      setErrorMsg('Please enter either Date of Birth or Age.');
       return;
     }
     if (!formData.emergencyContactPhone?.trim()) {
-      setErrorMsg('Please enter an emergency contact phone number.');
+      setErrorMsg('Emergency Contact Phone Number is required.');
+      return;
+    }
+    if (!formData.preExistingConditions?.trim()) {
+      setErrorMsg('Pre-existing Medical Conditions is required (enter "None" if none).');
+      return;
+    }
+    if (!formData.allergies?.trim()) {
+      setErrorMsg('Allergies field is required (enter "None" if none).');
+      return;
+    }
+    if (!formData.currentMedications?.trim()) {
+      setErrorMsg('Current Medications field is required (enter "None" if none).');
       return;
     }
 
@@ -184,6 +208,17 @@ export default function EmrFormModal({
             </div>
           )}
 
+          {/* Doctor Analysis Notice Box */}
+          <div className="p-3.5 bg-cyan-50/90 border border-cyan-200 rounded-2xl flex items-start gap-3 text-xs text-[#003893] shadow-sm">
+            <span className="text-lg flex-shrink-0">🩺</span>
+            <div>
+              <p className="font-black text-xs">Mandatory Doctor & Clinical Analysis Fields</p>
+              <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed font-medium">
+                All fields marked with <span className="text-red-500 font-bold">*</span> are strictly mandatory. This information allows attending physicians and AI triage services to safely evaluate patient history, flag medication conflicts, and recommend emergency care.
+              </p>
+            </div>
+          </div>
+
           {/* Section 1: Basic Identity & Vitals */}
           <div className="space-y-4">
             <h3 className="text-xs font-black uppercase tracking-wider text-[#003893] flex items-center gap-2">
@@ -221,12 +256,15 @@ export default function EmrFormModal({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Gender</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Gender <span className="text-red-500">*</span>
+                </label>
                 <select
                   name="gender"
                   value={formData.gender || 'Male'}
                   onChange={handleChange}
                   className="w-full px-3.5 py-2.5 text-xs text-[#003893] font-semibold bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#2ab8d8] focus:bg-white outline-none transition"
+                  required
                 >
                   {genderOptions.map((g) => (
                     <option key={g} value={g}>
@@ -237,12 +275,15 @@ export default function EmrFormModal({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Blood Group</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Blood Group <span className="text-red-500">*</span>
+                </label>
                 <select
                   name="bloodGroup"
                   value={formData.bloodGroup || 'O+'}
                   onChange={handleChange}
                   className="w-full px-3.5 py-2.5 text-xs text-[#003893] font-semibold bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#2ab8d8] focus:bg-white outline-none transition"
+                  required
                 >
                   {bloodGroupOptions.map((bg) => (
                     <option key={bg} value={bg}>
@@ -253,7 +294,9 @@ export default function EmrFormModal({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Date of Birth / Age</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Date of Birth / Age <span className="text-red-500">*</span>
+                </label>
                 <div className="flex gap-2">
                   <input
                     type="date"
@@ -359,7 +402,7 @@ export default function EmrFormModal({
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Pre-existing Medical Conditions
+                  Pre-existing Medical Conditions <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   name="preExistingConditions"
@@ -368,12 +411,15 @@ export default function EmrFormModal({
                   placeholder="e.g. Diabetes Type 2, Hypertension, Asthma, or None"
                   rows={2}
                   className="w-full p-3 text-xs text-[#003893] font-semibold bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#2ab8d8] focus:bg-white outline-none transition resize-none"
+                  required
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Allergies</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Allergies <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     name="allergies"
@@ -381,11 +427,14 @@ export default function EmrFormModal({
                     onChange={handleChange}
                     placeholder="e.g. Penicillin, Peanuts, Latex, or None"
                     className="w-full px-3.5 py-2.5 text-xs text-[#003893] font-semibold bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#2ab8d8] focus:bg-white outline-none transition"
+                    required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Current Medications</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Current Medications <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     name="currentMedications"
@@ -393,6 +442,7 @@ export default function EmrFormModal({
                     onChange={handleChange}
                     placeholder="e.g. Metformin 500mg, Lisinopril, or None"
                     className="w-full px-3.5 py-2.5 text-xs text-[#003893] font-semibold bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#2ab8d8] focus:bg-white outline-none transition"
+                    required
                   />
                 </div>
               </div>
