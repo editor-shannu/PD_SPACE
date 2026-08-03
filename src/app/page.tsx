@@ -84,12 +84,6 @@ export default function LandingPage() {
             <a href="#collaborate" className="px-3.5 py-2 rounded-xl hover:text-[#003893] hover:bg-white/80 transition">Hospital Partner</a>
           </nav>
 
-          <a
-            href="/auth/login"
-            className="px-5 py-2.5 rounded-2xl bg-[#003893] hover:bg-[#002868] text-white font-black text-xs transition shadow-md shadow-[#003893]/20"
-          >
-            Sign In Portal →
-          </a>
         </header>
 
         {/* Hero Section */}
