@@ -56,87 +56,87 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-[#2ab8d8] selection:text-white">
-      {/* Dynamic Background Gradients */}
+    <div className="min-h-screen w-full bg-gradient-to-b from-[#e8f4f8] via-[#f0f8fc] to-[#f5fbff] text-gray-800 font-sans selection:bg-[#2ab8d8] selection:text-white flex flex-col">
+      {/* Background Decorative Blur Blobs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#003893]/30 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-[#2ab8d8]/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute -bottom-40 left-1/3 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#2ab8d8]/20 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-[#003893]/15 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 left-1/3 w-96 h-96 bg-teal-400/20 rounded-full blur-3xl" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Navigation Header */}
-        <header className="py-6 flex items-center justify-between border-b border-slate-800/80">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1 flex flex-col">
+        {/* Top Header */}
+        <header className="py-5 flex items-center justify-between border-b border-white/80 sticky top-0 bg-white/70 backdrop-blur-xl rounded-b-3xl px-6 shadow-sm mt-2 z-50">
           <div className="flex items-center space-x-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#003893] to-[#2ab8d8] flex items-center justify-center text-white font-black text-xl shadow-lg shadow-cyan-500/20">
+            <div className="w-10 h-10 rounded-2xl bg-[#2ab8d8] flex items-center justify-center text-white font-black text-xl shadow-md shadow-[#2ab8d8]/30">
               🩺
             </div>
             <div>
-              <span className="text-2xl font-black tracking-tight text-white">Medi<span className="text-[#2ab8d8]">Flow</span></span>
-              <span className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">Clinical AI Ecosystem</span>
+              <span className="text-2xl font-black tracking-tight text-[#003893]">Medi<span className="text-[#2ab8d8]">Flow</span></span>
+              <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Clinical AI Ecosystem</span>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center space-x-6 text-xs font-bold text-slate-300">
-            <a href="#about" className="hover:text-[#2ab8d8] transition">About</a>
-            <a href="#facilities" className="hover:text-[#2ab8d8] transition">Facilities</a>
-            <a href="#portals" className="hover:text-[#2ab8d8] transition">Portals</a>
-            <a href="#collaborate" className="hover:text-[#2ab8d8] transition">Hospital Partner</a>
+          <nav className="hidden md:flex items-center space-x-2 text-xs font-black text-gray-600">
+            <a href="#about" className="px-3.5 py-2 rounded-xl hover:text-[#003893] hover:bg-white/80 transition">About</a>
+            <a href="#facilities" className="px-3.5 py-2 rounded-xl hover:text-[#003893] hover:bg-white/80 transition">Facilities</a>
+            <a href="#portals" className="px-3.5 py-2 rounded-xl hover:text-[#003893] hover:bg-white/80 transition">Portals</a>
+            <a href="#collaborate" className="px-3.5 py-2 rounded-xl hover:text-[#003893] hover:bg-white/80 transition">Hospital Partner</a>
           </nav>
 
           <a
             href="/auth/login"
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#2ab8d8] to-[#003893] hover:from-[#1fb1d1] hover:to-[#082f73] text-white font-extrabold text-xs transition shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40"
+            className="px-5 py-2.5 rounded-2xl bg-[#003893] hover:bg-[#002868] text-white font-black text-xs transition shadow-md shadow-[#003893]/20"
           >
             Sign In Portal →
           </a>
         </header>
 
         {/* Hero Section */}
-        <section className="py-20 text-center space-y-8">
-          <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs font-bold text-[#2ab8d8]">
-            <span className="animate-ping w-2 h-2 rounded-full bg-[#2ab8d8] inline-block" />
+        <section className="py-16 sm:py-20 text-center space-y-8">
+          <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-white/80 border border-white/90 shadow-sm text-xs font-black text-[#003893]">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#2ab8d8] animate-pulse inline-block" />
             <span>Multi-Tenant Enterprise Healthcare Platform</span>
           </div>
 
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight max-w-4xl mx-auto leading-tight">
-            Intelligent Clinical Ecosystem for <span className="bg-gradient-to-r from-[#2ab8d8] via-sky-300 to-indigo-400 bg-clip-text text-transparent">Patients, Doctors &amp; Hospitals</span>
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-[#003893] tracking-tight max-w-4xl mx-auto leading-tight">
+            Intelligent Clinical Ecosystem for <span className="bg-gradient-to-r from-[#003893] via-[#2ab8d8] to-sky-600 bg-clip-text text-transparent">Patients, Doctors &amp; Hospitals</span>
           </h1>
 
-          <p className="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto font-medium leading-relaxed">
+          <p className="text-gray-600 text-sm sm:text-base max-w-2xl mx-auto font-medium leading-relaxed">
             MediFlow unifies personal health records, AI prescription parsing, doctor referrals, and isolated multi-tenant hospital administration into one seamless, secure network.
           </p>
 
           {/* Quick Access Subdomain Portals Cards */}
-          <div id="portals" className="pt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-left">
+          <div id="portals" className="pt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 text-left">
             {[
               {
                 title: 'Patient Portal',
                 domain: 'patient-mediflow.shanmukhmedisetty.site',
                 desc: 'Upload medical files, track EMR timeline, and schedule consultations.',
                 icon: '👥',
-                color: 'from-cyan-500/10 to-sky-500/5 border-cyan-500/30 text-cyan-400',
+                badge: 'bg-cyan-50 text-cyan-800 border-cyan-200',
               },
               {
                 title: 'Doctor Portal',
                 domain: 'doctor-mediflow.shanmukhmedisetty.site',
                 desc: 'Manage clinical appointments, review patient EMR, & process referrals.',
                 icon: '🩺',
-                color: 'from-blue-500/10 to-indigo-500/5 border-blue-500/30 text-blue-400',
+                badge: 'bg-blue-50 text-blue-800 border-blue-200',
               },
               {
                 title: 'Hospital Admin Portal',
                 domain: 'medi-hospadmin.shanmukhmedisetty.site',
                 desc: 'Manage affiliated hospital staff, approve doctors, & monitor hospital stats.',
                 icon: '🏥',
-                color: 'from-teal-500/10 to-emerald-500/5 border-teal-500/30 text-teal-400',
+                badge: 'bg-teal-50 text-teal-800 border-teal-200',
               },
               {
                 title: 'Main Admin Portal',
                 domain: 'admin-mediflow.shanmukhmedisetty.site',
                 desc: 'System-wide analytics, hospital collaboration approvals, & registry oversight.',
                 icon: '⚙️',
-                color: 'from-[#003893]/20 to-purple-500/5 border-[#003893]/40 text-sky-300',
+                badge: 'bg-indigo-50 text-indigo-800 border-indigo-200',
               },
             ].map((portal, i) => (
               <a
@@ -144,21 +144,21 @@ export default function LandingPage() {
                 href={`https://${portal.domain}`}
                 target="_blank"
                 rel="noreferrer"
-                className={`p-6 rounded-3xl bg-gradient-to-br ${portal.color} border backdrop-blur-xl hover:scale-[1.03] transition-all duration-300 shadow-xl group flex flex-col justify-between`}
+                className="p-6 rounded-3xl bg-white/80 backdrop-blur-xl border border-white/90 hover:scale-[1.02] transition-all duration-300 shadow-sm hover:shadow-xl group flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-3xl">{portal.icon}</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-900/80 border border-slate-700 text-slate-300">
+                    <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${portal.badge}`}>
                       SUBDOMAIN
                     </span>
                   </div>
-                  <h3 className="text-lg font-black text-white group-hover:text-[#2ab8d8] transition">{portal.title}</h3>
-                  <p className="text-xs text-slate-400 mt-1 font-medium leading-relaxed">{portal.desc}</p>
+                  <h3 className="text-lg font-black text-[#003893] group-hover:text-[#2ab8d8] transition">{portal.title}</h3>
+                  <p className="text-xs text-gray-600 mt-1 font-medium leading-relaxed">{portal.desc}</p>
                 </div>
-                <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-[11px] font-mono">
-                  <span className="truncate max-w-[170px] text-slate-400">{portal.domain}</span>
-                  <span className="text-[#2ab8d8] font-bold group-hover:translate-x-1 transition">→</span>
+                <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between text-[11px] font-mono">
+                  <span className="truncate max-w-[170px] text-gray-500 font-bold">{portal.domain}</span>
+                  <span className="text-[#2ab8d8] font-bold group-hover:translate-x-1 transition text-sm">→</span>
                 </div>
               </a>
             ))}
@@ -166,36 +166,36 @@ export default function LandingPage() {
         </section>
 
         {/* About Section */}
-        <section id="about" className="py-16 border-t border-slate-800/80 space-y-10">
+        <section id="about" className="py-16 border-t border-gray-200/60 space-y-10">
           <div className="text-center space-y-3">
             <h2 className="text-xs font-black uppercase tracking-widest text-[#2ab8d8]">About MediFlow</h2>
-            <h3 className="text-3xl font-black text-white">Redefining Digital Health Infrastructure</h3>
-            <p className="text-slate-400 text-sm max-w-2xl mx-auto font-medium">
+            <h3 className="text-3xl font-black text-[#003893]">Redefining Digital Health Infrastructure</h3>
+            <p className="text-gray-600 text-sm max-w-2xl mx-auto font-medium">
               MediFlow bridges the gap between individual healthcare seekers, private clinical practices, and major hospital networks.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-7 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-3">
-              <span className="text-3xl">🤖</span>
-              <h4 className="text-base font-black text-white">AI-Powered EMR Processing</h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
+            <div className="p-7 rounded-3xl bg-white/80 backdrop-blur-xl border border-white/90 shadow-sm space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#2ab8d8]/15 flex items-center justify-center text-2xl">🤖</div>
+              <h4 className="text-base font-black text-[#003893]">AI-Powered EMR Processing</h4>
+              <p className="text-xs text-gray-600 leading-relaxed font-medium">
                 Utilizes Gemini AI models to analyze uploaded prescription images, extract medication dosages, and generate structured electronic medical records instantly.
               </p>
             </div>
 
-            <div className="p-7 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-3">
-              <span className="text-3xl">🏢</span>
-              <h4 className="text-base font-black text-white">Multi-Tenant Subdomain Segregation</h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
+            <div className="p-7 rounded-3xl bg-white/80 backdrop-blur-xl border border-white/90 shadow-sm space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#003893]/10 flex items-center justify-center text-2xl">🏢</div>
+              <h4 className="text-base font-black text-[#003893]">Multi-Tenant Subdomain Segregation</h4>
+              <p className="text-xs text-gray-600 leading-relaxed font-medium">
                 Hospitals operate in isolated domain spaces (`medi-hospadmin`), allowing custom administrator access, staff credentials, and independent patient management.
               </p>
             </div>
 
-            <div className="p-7 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-3">
-              <span className="text-3xl">🩺</span>
-              <h4 className="text-base font-black text-white">Dual-Queue Doctor Approval</h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
+            <div className="p-7 rounded-3xl bg-white/80 backdrop-blur-xl border border-white/90 shadow-sm space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-teal-500/15 flex items-center justify-center text-2xl">🩺</div>
+              <h4 className="text-base font-black text-[#003893]">Dual-Queue Doctor Approval</h4>
+              <p className="text-xs text-gray-600 leading-relaxed font-medium">
                 Supports individual medical practitioners verified by Main Admin as well as hospital-affiliated doctors verified by their respective Hospital Admins.
               </p>
             </div>
@@ -203,11 +203,11 @@ export default function LandingPage() {
         </section>
 
         {/* Facilities Section */}
-        <section id="facilities" className="py-16 border-t border-slate-800/80 space-y-10">
+        <section id="facilities" className="py-16 border-t border-gray-200/60 space-y-10">
           <div className="text-center space-y-3">
             <h2 className="text-xs font-black uppercase tracking-widest text-[#2ab8d8]">Platform Facilities</h2>
-            <h3 className="text-3xl font-black text-white">Comprehensive Clinical Facilities &amp; Tools</h3>
-            <p className="text-slate-400 text-sm max-w-2xl mx-auto font-medium">
+            <h3 className="text-3xl font-black text-[#003893]">Comprehensive Clinical Facilities &amp; Tools</h3>
+            <p className="text-gray-600 text-sm max-w-2xl mx-auto font-medium">
               Everything required for modern healthcare delivery, from automated reminders to cross-specialty doctor referrals.
             </p>
           </div>
@@ -245,31 +245,31 @@ export default function LandingPage() {
                 desc: 'Enterprise-grade domain isolation ensuring strict role boundaries and data privacy.',
               },
             ].map((facility, i) => (
-              <div key={i} className="p-6 rounded-3xl bg-slate-900/40 border border-slate-800 hover:border-slate-700 transition space-y-2">
+              <div key={i} className="p-6 rounded-3xl bg-white/80 backdrop-blur-xl border border-white/90 shadow-sm space-y-2">
                 <span className="text-2xl">{facility.icon}</span>
-                <h4 className="text-sm font-black text-white">{facility.title}</h4>
-                <p className="text-xs text-slate-400 leading-relaxed">{facility.desc}</p>
+                <h4 className="text-sm font-black text-[#003893]">{facility.title}</h4>
+                <p className="text-xs text-gray-600 leading-relaxed font-medium">{facility.desc}</p>
               </div>
             ))}
           </div>
         </section>
 
         {/* Hospital Collaboration Application Form */}
-        <section id="collaborate" className="py-16 border-t border-slate-800/80">
-          <div className="p-8 sm:p-12 rounded-3xl bg-gradient-to-br from-slate-900 to-[#003893]/20 border border-slate-800 space-y-8">
+        <section id="collaborate" className="py-16 border-t border-gray-200/60">
+          <div className="p-8 sm:p-12 rounded-3xl bg-white/90 backdrop-blur-xl border border-white/90 shadow-lg space-y-8">
             <div className="max-w-2xl space-y-2">
-              <span className="px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-400 text-[10px] font-black uppercase">
+              <span className="px-3.5 py-1 rounded-full bg-[#2ab8d8]/15 border border-[#2ab8d8]/30 text-[#003893] text-[10px] font-black uppercase">
                 Hospital Collaboration Onboarding
               </span>
-              <h2 className="text-3xl font-black text-white">Partner With MediFlow</h2>
-              <p className="text-slate-400 text-xs font-semibold leading-relaxed">
+              <h2 className="text-3xl font-black text-[#003893]">Partner With MediFlow</h2>
+              <p className="text-gray-600 text-xs font-semibold leading-relaxed">
                 Hospitals can apply for collaboration to receive a dedicated Hospital Admin dashboard (`medi-hospadmin`) to manage doctors, staff credentials, and clinical operations.
               </p>
             </div>
 
             {submitSuccess ? (
-              <div className="p-6 bg-emerald-950/60 border border-emerald-800 rounded-2xl space-y-2 text-xs font-semibold text-emerald-300">
-                <h4 className="text-base font-black text-white flex items-center gap-2">
+              <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2 text-xs font-semibold text-emerald-800">
+                <h4 className="text-base font-black text-emerald-900 flex items-center gap-2">
                   <span>🎉</span> Application Submitted Successfully!
                 </h4>
                 <p>
@@ -278,110 +278,110 @@ export default function LandingPage() {
                 </p>
                 <button
                   onClick={() => setSubmitSuccess(false)}
-                  className="mt-4 px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl font-bold transition text-xs"
+                  className="mt-4 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold transition text-xs shadow"
                 >
                   Submit Another Application
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleHospitalApply} className="space-y-4 text-xs font-bold text-slate-300">
+              <form onSubmit={handleHospitalApply} className="space-y-4 text-xs font-bold text-gray-700">
                 {submitError && (
-                  <div className="p-3 bg-red-950/60 border border-red-800 text-red-300 rounded-xl">
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl">
                     ⚠️ {submitError}
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block mb-1 text-slate-400">Hospital Legal Name *</label>
+                    <label className="block mb-1 text-gray-500 font-bold uppercase text-[10px]">Hospital Legal Name *</label>
                     <input
                       type="text"
                       required
                       value={hospName}
                       onChange={(e) => setHospName(e.target.value)}
                       placeholder="e.g. St. Jude Healthcare Hospital"
-                      className="w-full p-3 rounded-2xl bg-slate-950 border border-slate-800 focus:border-[#2ab8d8] outline-none text-white transition text-xs"
+                      className="w-full p-3.5 rounded-2xl bg-gray-50/80 border border-gray-200 focus:border-[#2ab8d8] focus:bg-white outline-none text-gray-800 transition text-xs font-semibold"
                     />
                   </div>
 
                   <div>
-                    <label className="block mb-1 text-slate-400">Official Contact Email *</label>
+                    <label className="block mb-1 text-gray-500 font-bold uppercase text-[10px]">Official Contact Email *</label>
                     <input
                       type="email"
                       required
                       value={hospEmail}
                       onChange={(e) => setHospEmail(e.target.value)}
                       placeholder="admin@stjudehospital.org"
-                      className="w-full p-3 rounded-2xl bg-slate-950 border border-slate-800 focus:border-[#2ab8d8] outline-none text-white transition text-xs"
+                      className="w-full p-3.5 rounded-2xl bg-gray-50/80 border border-gray-200 focus:border-[#2ab8d8] focus:bg-white outline-none text-gray-800 transition text-xs font-semibold"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-2">
-                    <label className="block mb-1 text-slate-400">Full Hospital Address *</label>
+                    <label className="block mb-1 text-gray-500 font-bold uppercase text-[10px]">Full Hospital Address *</label>
                     <input
                       type="text"
                       required
                       value={hospAddress}
                       onChange={(e) => setHospAddress(e.target.value)}
                       placeholder="124 Medical Plaza Way, Suite 400"
-                      className="w-full p-3 rounded-2xl bg-slate-950 border border-slate-800 focus:border-[#2ab8d8] outline-none text-white transition text-xs"
+                      className="w-full p-3.5 rounded-2xl bg-gray-50/80 border border-gray-200 focus:border-[#2ab8d8] focus:bg-white outline-none text-gray-800 transition text-xs font-semibold"
                     />
                   </div>
 
                   <div>
-                    <label className="block mb-1 text-slate-400">Contact Phone *</label>
+                    <label className="block mb-1 text-gray-500 font-bold uppercase text-[10px]">Contact Phone *</label>
                     <input
                       type="tel"
                       required
                       value={hospPhone}
                       onChange={(e) => setHospPhone(e.target.value)}
                       placeholder="+1 (555) 890-1234"
-                      className="w-full p-3 rounded-2xl bg-slate-950 border border-slate-800 focus:border-[#2ab8d8] outline-none text-white transition text-xs"
+                      className="w-full p-3.5 rounded-2xl bg-gray-50/80 border border-gray-200 focus:border-[#2ab8d8] focus:bg-white outline-none text-gray-800 transition text-xs font-semibold"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block mb-1 text-slate-400">Total Bed Capacity</label>
+                    <label className="block mb-1 text-gray-500 font-bold uppercase text-[10px]">Total Bed Capacity</label>
                     <input
                       type="number"
                       value={hospCapacity}
                       onChange={(e) => setHospCapacity(e.target.value)}
                       placeholder="150"
-                      className="w-full p-3 rounded-2xl bg-slate-950 border border-slate-800 focus:border-[#2ab8d8] outline-none text-white transition text-xs"
+                      className="w-full p-3.5 rounded-2xl bg-gray-50/80 border border-gray-200 focus:border-[#2ab8d8] focus:bg-white outline-none text-gray-800 transition text-xs font-semibold"
                     />
                   </div>
 
                   <div>
-                    <label className="block mb-1 text-slate-400">Key Specialties (Comma Separated)</label>
+                    <label className="block mb-1 text-gray-500 font-bold uppercase text-[10px]">Key Specialties (Comma Separated)</label>
                     <input
                       type="text"
                       value={hospSpecialties}
                       onChange={(e) => setHospSpecialties(e.target.value)}
                       placeholder="Cardiology, Oncology, Pediatrics"
-                      className="w-full p-3 rounded-2xl bg-slate-950 border border-slate-800 focus:border-[#2ab8d8] outline-none text-white transition text-xs"
+                      className="w-full p-3.5 rounded-2xl bg-gray-50/80 border border-gray-200 focus:border-[#2ab8d8] focus:bg-white outline-none text-gray-800 transition text-xs font-semibold"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block mb-1 text-slate-400">Reason for Collaboration Request</label>
+                  <label className="block mb-1 text-gray-500 font-bold uppercase text-[10px]">Reason for Collaboration Request</label>
                   <textarea
                     rows={3}
                     value={hospReason}
                     onChange={(e) => setHospReason(e.target.value)}
                     placeholder="Describe your hospital facility, staff size, and goals for joining the MediFlow ecosystem."
-                    className="w-full p-3 rounded-2xl bg-slate-950 border border-slate-800 focus:border-[#2ab8d8] outline-none text-white transition text-xs"
+                    className="w-full p-3.5 rounded-2xl bg-gray-50/80 border border-gray-200 focus:border-[#2ab8d8] focus:bg-white outline-none text-gray-800 transition text-xs font-semibold"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-teal-500 to-[#003893] hover:from-teal-400 hover:to-[#082f73] text-white font-extrabold text-xs shadow-lg shadow-teal-500/20 transition disabled:opacity-50"
+                  className="px-8 py-3.5 rounded-2xl bg-[#003893] hover:bg-[#002868] text-white font-black text-xs shadow-md shadow-[#003893]/20 transition disabled:opacity-50"
                 >
                   {isSubmitting ? 'Submitting Hospital Application...' : 'Submit Collaboration Application →'}
                 </button>
@@ -391,10 +391,10 @@ export default function LandingPage() {
         </section>
 
         {/* Footer */}
-        <footer className="py-8 border-t border-slate-800 text-center text-xs text-slate-500 space-y-2">
+        <footer className="py-8 border-t border-gray-200/60 text-center text-xs text-gray-500 space-y-2 mt-auto">
           <p>© {new Date().getFullYear()} MediFlow Healthcare Platform. All rights reserved.</p>
-          <p className="text-[11px] text-slate-400">
-            For support or administrative inquiries: <strong className="text-[#2ab8d8]">heallink.care@gmail.com</strong>
+          <p className="text-[11px] text-gray-400 font-medium">
+            For support or administrative inquiries: <strong className="text-[#003893]">heallink.care@gmail.com</strong>
           </p>
         </footer>
       </div>
