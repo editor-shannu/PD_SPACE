@@ -37,9 +37,25 @@ function LoginForm() {
   const [showInstall, setShowInstall] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isProcessingRedirect, setIsProcessingRedirect] = useState(true);
+  const [isStandalone, setIsStandalone] = useState(false);
 
-  // Handle PWA install prompt
+  // Check standalone mode & handle PWA install prompt
   useEffect(() => {
+    const checkStandalone = () => {
+      const isStandaloneMode =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true ||
+        document.referrer.includes('android-app://');
+      setIsStandalone(isStandaloneMode);
+      return isStandaloneMode;
+    };
+
+    const standalone = checkStandalone();
+    if (standalone) {
+      setShowInstall(false);
+      return;
+    }
+
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -160,7 +176,7 @@ function LoginForm() {
       <div className="w-full md:max-w-sm md:my-8 md:rounded-[40px] md:overflow-hidden md:shadow-2xl flex flex-col">
 
         {/* ── PWA Install Banner ────────────────────────── */}
-        {showInstall && (
+        {showInstall && !isStandalone && (
           <div className="bg-[#003893] px-4 py-3 flex items-center justify-between gap-3 md:rounded-t-[40px]">
             <div className="flex items-center gap-2">
               <span className="text-lg">📲</span>
@@ -336,16 +352,18 @@ function LoginForm() {
           </button>
 
           {/* iOS PWA tip */}
-          <div className="w-full bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3 flex items-start gap-2.5">
-            <span className="text-blue-400 text-base flex-shrink-0 mt-0.5">📱</span>
-            <div>
-              <p className="text-blue-700 text-[10px] font-bold uppercase tracking-wide mb-0.5">Install as App</p>
-              <p className="text-blue-600 text-[10px] leading-relaxed">
-                <strong>Android:</strong> Tap the browser menu → &quot;Add to Home Screen&quot;<br />
-                <strong>iOS Safari:</strong> Tap Share <span className="text-xs">⎙</span> → &quot;Add to Home Screen&quot;
-              </p>
+          {!isStandalone && (
+            <div className="w-full bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3 flex items-start gap-2.5">
+              <span className="text-blue-400 text-base flex-shrink-0 mt-0.5">📱</span>
+              <div>
+                <p className="text-blue-700 text-[10px] font-bold uppercase tracking-wide mb-0.5">Install as App</p>
+                <p className="text-blue-600 text-[10px] leading-relaxed">
+                  <strong>Android:</strong> Tap the browser menu → &quot;Add to Home Screen&quot;<br />
+                  <strong>iOS Safari:</strong> Tap Share <span className="text-xs">⎙</span> → &quot;Add to Home Screen&quot;
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           {process.env.NODE_ENV === 'development' && (
             <div className="w-full space-y-2">
