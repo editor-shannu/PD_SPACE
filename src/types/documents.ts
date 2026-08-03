@@ -22,6 +22,8 @@ export interface DoctorProfile {
   licenseNumber: string;
   experienceYears?: string | number;
   hospitalAffiliation?: string;
+  hospitalId?: string;
+  doctorJoinType?: 'individual' | 'hospital';
   phone?: string;
   qualifications?: string;
   appliedAt?: Date | string;
@@ -35,7 +37,10 @@ export interface User {
   id?: string;
   email: string;
   name: string;
-  role?: 'patient' | 'doctor' | 'admin';
+  password?: string;
+  role?: 'patient' | 'doctor' | 'admin' | 'hospital_admin';
+  hospitalId?: string;
+  hospitalName?: string;
   isEmrCompleted?: boolean;
   emrProfile?: EmrProfile;
   doctorApplicationStatus?: 'none' | 'pending' | 'approved' | 'rejected';

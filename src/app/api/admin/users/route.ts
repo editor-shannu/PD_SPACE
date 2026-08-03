@@ -8,7 +8,8 @@ import { UserModel } from '@/models/user';
 async function checkAdmin() {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email?.toLowerCase().trim();
-  if (!session?.user || (email !== 'heallink.care@gmail.com' && email !== 'mediflow@test.com')) {
+  const role = (session?.user as any)?.role;
+  if (!session?.user || (email !== 'heallink.care@gmail.com' && email !== 'mediflow@test.com' && role !== 'admin')) {
     return { authorized: false, session };
   }
   return { authorized: true, session };
@@ -53,7 +54,12 @@ export async function GET(req: NextRequest) {
       isEmrCompleted: !!u.isEmrCompleted,
       emrProfile: u.emrProfile,
       doctorApplicationStatus: u.doctorApplicationStatus || 'none',
-      doctorProfile: u.doctorProfile || null,
+      doctorProfile: u.doctorProfile ? {
+        ...u.doctorProfile,
+        doctorJoinType: u.doctorProfile.doctorJoinType || (u.doctorProfile.hospitalId ? 'hospital' : 'individual'),
+        hospitalId: u.doctorProfile.hospitalId || '',
+        hospitalName: u.doctorProfile.hospitalName || u.doctorProfile.hospitalAffiliation || '',
+      } : null,
       doctorRejectedAt: u.doctorRejectedAt || null,
       doctorRejectionReason: u.doctorRejectionReason || '',
       createdAt: u.createdAt || u.updatedAt || new Date().toISOString(),

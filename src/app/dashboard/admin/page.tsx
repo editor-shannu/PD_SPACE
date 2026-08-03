@@ -38,6 +38,13 @@ export default function AdminDashboard() {
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [usersError, setUsersError] = useState('');
 
+  // Hospital Applications State
+  const [hospitals, setHospitals] = useState<any[]>([]);
+  const [hospitalsLoading, setHospitalsLoading] = useState(true);
+  const [hospitalsError, setHospitalsError] = useState('');
+  const [updatingHospId, setUpdatingHospId] = useState<string | null>(null);
+  const [approvedCredentials, setApprovedCredentials] = useState<any | null>(null);
+
   const fetchStats = async (seed = false) => {
     try {
       setIsLoading(true);
@@ -140,10 +147,54 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchHospitals = async () => {
+    try {
+      setHospitalsLoading(true);
+      setHospitalsError('');
+      const res = await fetch('/api/admin/hospitals');
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setHospitals(data.hospitals || []);
+      } else {
+        setHospitalsError(data.error || 'Failed to fetch hospital applications');
+      }
+    } catch (err: any) {
+      setHospitalsError('Error loading hospital collaboration requests');
+    } finally {
+      setHospitalsLoading(false);
+    }
+  };
+
+  const handleHospitalAction = async (hospitalId: string, action: 'approve' | 'reject') => {
+    try {
+      setUpdatingHospId(hospitalId);
+      setHospitalsError('');
+      const res = await fetch('/api/admin/hospitals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hospitalId, action }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (action === 'approve' && data.credentials) {
+          setApprovedCredentials(data.credentials);
+        }
+        fetchHospitals();
+      } else {
+        throw new Error(data.error || `Failed to ${action} hospital`);
+      }
+    } catch (err: any) {
+      setHospitalsError(err.message || `Error processing ${action} action.`);
+    } finally {
+      setUpdatingHospId(null);
+    }
+  };
+
   useEffect(() => {
     if (status === 'authenticated') {
       fetchStats();
       fetchUsers();
+      fetchHospitals();
     }
   }, [status]);
 
@@ -498,6 +549,122 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* HOSPITAL COLLABORATION APPLICATIONS & PARTNERS */}
+        <div className="bg-teal-50/70 backdrop-blur-xl border border-teal-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 className="text-xs font-black text-teal-900 uppercase tracking-widest flex items-center gap-2">
+                <span className="text-base">🏥</span> Hospital Collaborations &amp; Partner Management ({hospitals.length})
+              </h3>
+              <p className="text-[11px] text-teal-700 font-semibold mt-0.5">Review partnership applications &amp; manage hospital admin credentials.</p>
+            </div>
+            <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-teal-200 text-teal-900 border border-teal-300 self-start sm:self-auto">
+              Subdomain: medi-hospadmin.shanmukhmedisetty.site
+            </span>
+          </div>
+
+          {approvedCredentials && (
+            <div className="p-4 bg-emerald-900 text-white rounded-2xl space-y-2 text-xs shadow-lg animate-fade-in border border-emerald-700">
+              <div className="flex items-center justify-between">
+                <span className="font-extrabold text-emerald-300 uppercase tracking-wider">🎉 Hospital Approved & Credentials Generated!</span>
+                <button onClick={() => setApprovedCredentials(null)} className="text-xs text-emerald-200 hover:text-white">✕ Close</button>
+              </div>
+              <div className="bg-slate-950/80 p-3 rounded-xl font-mono text-xs space-y-1 border border-emerald-800">
+                <p>Hospital Admin Email: <strong className="text-teal-300">{approvedCredentials.hospitalAdminEmail}</strong></p>
+                <p>Hospital ID: <strong className="text-teal-300">{approvedCredentials.hospitalId}</strong></p>
+                <p>Generated Password: <strong className="text-amber-300 font-bold">{approvedCredentials.password}</strong></p>
+              </div>
+              <p className="text-[10px] text-emerald-200">Share these login details with the hospital partner to access the Hospital Admin Dashboard.</p>
+            </div>
+          )}
+
+          {hospitalsLoading && hospitals.length === 0 ? (
+            <div className="py-6 text-center text-xs text-teal-700 font-semibold animate-pulse">
+              Loading hospital applications...
+            </div>
+          ) : hospitals.length === 0 ? (
+            <div className="py-6 text-center text-xs text-teal-700 font-semibold bg-white/60 rounded-2xl border border-dashed border-teal-200">
+              No hospital collaboration applications received yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {hospitals.map((hosp) => {
+                const isPending = hosp.status === 'pending';
+                const isApproved = hosp.status === 'approved';
+                const isUpdating = updatingHospId === hosp.hospitalId;
+
+                return (
+                  <div key={hosp.hospitalId} className="p-4 rounded-2xl bg-white border border-teal-150 shadow-sm space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-teal-100 pb-2.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-teal-600 text-white font-black flex items-center justify-center text-sm">
+                          🏥
+                        </div>
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <h4 className="text-sm font-black text-[#003893]">{hosp.name}</h4>
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                              isPending ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                              isApproved ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                              'bg-red-100 text-red-800 border border-red-200'
+                            }`}>
+                              {hosp.status}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 font-semibold">{hosp.address} | ID: <span className="font-mono text-teal-700 font-bold">{hosp.hospitalId}</span></p>
+                        </div>
+                      </div>
+
+                      <div className="text-right text-[11px] text-gray-500 font-semibold">
+                        <p>Doctors Enrolled: <strong className="text-teal-700">{hosp.doctorCount || 0}</strong></p>
+                        <p className="text-[10px] text-gray-400">Capacity: {hosp.bedCapacity}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-semibold text-gray-700 bg-teal-50/40 p-2.5 rounded-xl border border-teal-100">
+                      <div><span className="text-[9px] text-teal-800 font-bold uppercase block">Contact Email</span>{hosp.contactEmail}</div>
+                      <div><span className="text-[9px] text-teal-800 font-bold uppercase block">Phone</span>{hosp.phone}</div>
+                      <div><span className="text-[9px] text-teal-800 font-bold uppercase block">Specialties</span>{(hosp.specialties || []).join(', ') || 'General'}</div>
+                    </div>
+
+                    {hosp.reasonToJoin && (
+                      <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded-xl border border-gray-100">
+                        <strong className="text-gray-700">Collaboration Purpose:</strong> {hosp.reasonToJoin}
+                      </p>
+                    )}
+
+                    {isApproved && hosp.credentials && (
+                      <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+                        <span className="text-emerald-900">Admin Email: <strong>{hosp.credentials.hospitalAdminEmail}</strong></span>
+                        <span className="text-emerald-900">Temp Password: <strong className="text-amber-800 bg-amber-100 px-2 py-0.5 rounded">{hosp.credentials.rawTempPassword || '••••••••'}</strong></span>
+                      </div>
+                    )}
+
+                    {isPending && (
+                      <div className="flex items-center justify-end space-x-2 pt-1">
+                        <button
+                          onClick={() => handleHospitalAction(hosp.hospitalId, 'reject')}
+                          disabled={isUpdating}
+                          className="px-3.5 py-1.5 rounded-xl bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 text-xs font-extrabold transition disabled:opacity-50"
+                        >
+                          {isUpdating ? 'Updating...' : 'Reject Collaboration'}
+                        </button>
+                        <button
+                          onClick={() => handleHospitalAction(hosp.hospitalId, 'approve')}
+                          disabled={isUpdating}
+                          className="px-4 py-1.5 rounded-xl bg-teal-600 text-white font-extrabold text-xs hover:bg-teal-700 shadow transition disabled:opacity-50"
+                        >
+                          {isUpdating ? 'Approving...' : 'Approve & Generate Credentials'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {usersError && (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-3 flex items-center gap-2 text-xs text-red-700 font-semibold">
             <span>⚠️</span>
@@ -539,9 +706,18 @@ export default function AdminDashboard() {
                             👨‍⚕️
                           </div>
                           <div>
-                            <h4 className="text-sm font-black text-[#003893]">
-                              {appUser.name}
-                            </h4>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-black text-[#003893]">
+                                {appUser.name}
+                              </h4>
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
+                                dp.doctorJoinType === 'hospital' || dp.hospitalId
+                                  ? 'bg-purple-100 text-purple-900 border border-purple-200'
+                                  : 'bg-sky-100 text-sky-900 border border-sky-200'
+                              }`}>
+                                {dp.doctorJoinType === 'hospital' || dp.hospitalId ? '🏥 Hospital Doctor' : '👤 Individual Doctor'}
+                              </span>
+                            </div>
                             <p className="text-xs text-gray-500 font-semibold">{appUser.email}</p>
                           </div>
                         </div>

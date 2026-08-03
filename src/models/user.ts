@@ -28,6 +28,8 @@ const doctorProfileSchema = new Schema(
     licenseNumber: { type: String, required: true },
     experienceYears: { type: String },
     hospitalAffiliation: { type: String },
+    hospitalId: { type: String },
+    doctorJoinType: { type: String, enum: ['individual', 'hospital'], default: 'individual' },
     phone: { type: String },
     qualifications: { type: String },
     appliedAt: { type: Date, default: Date.now },
@@ -39,7 +41,10 @@ const userSchema = new Schema<User>(
   {
     email: { type: String, required: true, unique: true, lowercase: true },
     name: { type: String, required: true },
-    role: { type: String, enum: ['patient', 'doctor', 'admin'], default: 'patient' },
+    password: { type: String },
+    role: { type: String, enum: ['patient', 'doctor', 'admin', 'hospital_admin'], default: 'patient' },
+    hospitalId: { type: String },
+    hospitalName: { type: String },
     isEmrCompleted: { type: Boolean, default: false },
     emrProfile: { type: emrProfileSchema },
     doctorApplicationStatus: {

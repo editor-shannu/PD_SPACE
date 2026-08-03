@@ -1,56 +1,65 @@
-# 🏥 MediFlow — AI-Powered Healthcare Navigation & Verification Platform
+# 🏥 MediFlow — AI-Powered Multi-Tenant Healthcare Ecosystem
 
-MediFlow is a modern, full-stack healthcare platform designed to streamline patient onboarding, automate clinical triaging, provide secure admin-governed doctor verification pipelines, and deliver actionable analytics for hospital administrators and physicians.
+MediFlow is a modern, enterprise-grade multi-tenant healthcare platform designed to streamline patient onboarding, automate clinical triaging via Gemini AI, support isolated hospital administration portals across dedicated subdomains, and deliver real-time analytics for health administrators and physicians.
+
+---
+
+## 🌐 Subdomain Routing & Isolation Architecture
+
+MediFlow uses dynamic, domain-level routing enforced by Next.js middleware (`middleware.ts`) to isolate roles, ensure data privacy, and eliminate route collisions across dedicated subdomains:
+
+| Subdomain Domain | Portal View | Description & Access Control |
+| :--- | :--- | :--- |
+| **`mediflow.shanmukhmedisetty.site`** | **Main Landing Page** | Public platform showcase detailing application capabilities, clinical facilities, subdomain portal links, and the Hospital Collaboration Onboarding form. |
+| **`patient-mediflow.shanmukhmedisetty.site`** | **Patient Portal** | Isolated patient dashboard (`/dashboard/patient`) for medical document uploads, EMR management, symptom triage, and appointments. |
+| **`doctor-mediflow.shanmukhmedisetty.site`** | **Doctor Portal** | Isolated physician portal (`/dashboard/doctor`) for patient consultations, referral handovers, checkup sign-offs, and appointment queues. |
+| **`admin-mediflow.shanmukhmedisetty.site`** | **Main Admin Portal** | Enterprise system dashboard (`/dashboard/admin`) for platform analytics, hospital partnership approvals, and individual doctor verification queues. |
+| **`medi-hospadmin.shanmukhmedisetty.site`** | **Hospital Admin Portal** | Dedicated hospital admin portal (`/hospadmin`) for collaborated hospitals to manage affiliated staff doctors and monitor hospital clinical data. |
 
 ---
 
 ## 🌟 Comprehensive Feature Overview
 
-### 1. Patient Portal & EMR Management Pipeline
-* **Compulsory EMR Onboarding & Access Gate (`PatientEmrGate`)**: Enforces completion of a mandatory Electronic Medical Record (EMR) form (Personal Details, Primary Phone, Blood Group, Emergency Contact, Pre-existing Conditions, Allergies, Current Medications, Address) for all new and existing registered patients upon opening the dashboard. Unlocks full dashboard access only upon saving.
-* **Strict Field Validation**: Required field indicators ensure critical health metrics and emergency contacts are filled out accurately to assist attending doctors in clinical evaluations.
-* **On-Demand Lifetime EMR Editing (`EmrFormModal`)**: Integrated "Edit EMR Form" button and Verified Patient EMR Profile card directly on the Patient Dashboard header allowing patients to update their medical history at any time.
-* **Smart Medical Document Upload (`DocumentUpload`)**: Drag-and-drop ingestion accepting medical documents, handwritten prescriptions, and clinical reports (PDF, PNG, JPG).
+### 1. Multi-Tenant Hospital Collaboration & Administration
+* **Hospital Partnership Onboarding (`/api/hospital/apply`)**: Hospitals submit collaboration requests directly from the landing page or API, specifying legal name, address, contact email, phone, bed capacity, specialties, and collaboration goals.
+* **Main Admin Review & Approval (`/api/admin/hospitals`)**: Main Administrators review pending hospital applications, inspect bed capacity/specialties, and execute one-click **Approve** or **Reject** decisions.
+* **Automated Credential & Hospital ID Generation**: Upon approval, the system programmatically generates a unique `Hospital ID` (e.g. `HOSP-8F92A`) and creates a secure `hospital_admin` user account with temporary login credentials.
+* **Dedicated Hospital Admin Dashboard (`/hospadmin`)**: Hospital administrators sign in via `medi-hospadmin.shanmukhmedisetty.site` using their generated Hospital ID / email. Provides an isolated workspace to:
+  * Review and approve/reject doctor verification requests submitted specifically for their hospital.
+  * View active staff doctor rosters and hospital doctor counts.
+  * Monitor patient consultation volume and hospital clinical statistics.
+* **Hospital Credentials Rotation (`/api/hospital/password`)**: Enables hospital administrators to securely update their login credentials and rotate temporary passwords.
+
+### 2. Dual-Queue Doctor Verification & Affiliation Routing
+* **Practice Type Selection**: Doctors registering on the platform choose between two affiliation paths:
+  1. **Individual Practice Doctor**: Request routes directly to the **Main Admin** (`admin-mediflow.shanmukhmedisetty.site`) approval queue.
+  2. **Hospital Affiliated Doctor**: Doctor selects an approved partner hospital from the live hospital directory (`/api/hospitals/list`), routing their verification request directly to that specific **Hospital Admin** (`medi-hospadmin.shanmukhmedisetty.site`).
+* **Compulsory Doctor Verification Form**: Unapproved applicants submit Medical License Number, Specialization/Department, Hospital Affiliation, Contact Phone, Years of Experience, and Academic Qualifications.
+* **Patient Account Restriction**: Patient accounts are prevented from logging into the Doctor Portal.
+* **Mandatory 1-Week (7-Day) Cooling Period**: If rejected, an automated 7-day waiting period is enforced by API (`/api/doctor/apply`) and UI, displaying a live countdown before re-applying.
+
+### 3. Patient Portal & EMR Management Pipeline
+* **Compulsory EMR Onboarding & Access Gate (`PatientEmrGate`)**: Mandatory EMR form (Personal Details, Blood Group, Emergency Contact, Pre-existing Conditions, Allergies, Current Medications, Address) for all new registered patients.
+* **On-Demand Lifetime EMR Editing (`EmrFormModal`)**: Patients can view or update their medical profile anytime directly on their dashboard.
+* **Smart Medical Document Upload (`DocumentUpload`)**: Drag-and-drop ingestion for prescriptions, lab results, and diagnostic reports (PDF, PNG, JPG).
 * **Zero-Shot Validation**: Powered by a FastAPI microservice to detect and filter out non-medical documents before processing.
 * **Hybrid OCR & AI Extraction**: Tesseract OCR extracts text, and the Google Gemini reasoning engine structures it into precise clinical schemas (diagnoses, medications, dosage, follow-up dates).
-* **Intelligent AI Triage & Healthcare Guardrails**: Real-time triage analyzing symptoms alongside historical records, advising on recommended specialty and urgency levels. Outlines safety disclosures (*"This is AI-generated based on its knowledge. It may contain errors. Please verify with appropriate medical doctors before making any decisions."*).
+* **Intelligent AI Triage & Guardrails**: Real-time symptom analysis advising on recommended specialty and urgency levels with safety disclaimers.
 
-### 2. Secure Admin-Governed Doctor Verification & Onboarding
-* **Google OAuth & Standard Sign-In**: Medical professionals can sign up via Google OAuth or standard email/password credentials.
-* **Compulsory Doctor Verification Form**: Unapproved doctor applicants are presented with a compulsory verification form requiring Medical License Number, Department/Specialization, Hospital/Clinic Affiliation, Contact Phone, Years of Experience, and Academic Degrees.
-* **Patient Account Access Restriction**: Accounts registered as a **Patient** (who have completed EMR as a patient) are restricted from signing in or accessing the Doctor Portal, displaying a clear restriction warning card directing them to the Patient Dashboard.
-* **Under Review Access Gate**: Application access remains restricted in `pending` status until verified by an Administrator.
-* **Admin Verification Queue (`/dashboard/admin`)**: Administrators can review applicant credentials, inspect license numbers, and execute one-click **Approve & Grant Doctor Access** or **Reject Application**.
-* **Mandatory 1-Week (7-Day) Cooling Period**: If an application is rejected, an automated 7-day cooling period is programmatically enforced by both the API (`/api/doctor/apply`) and UI. Displays a live days-remaining countdown card preventing premature re-applications.
-* **Verified Doctor Directory (`/api/doctors`)**: Patient appointment booking displays only verified, admin-approved medical doctors.
-
-### 3. Doctor Portal, Data Isolation & Referral System
-* **Strict Patient Data Isolation**: The patient directory (`/api/doctor/patients`) is strictly filtered to only display patients who have booked an appointment with the logged-in doctor, have been formally referred to them by a colleague, or have associated document records.
-* **Doctor-to-Doctor Patient Referrals (`ReferralModel` & `/api/doctor/refer`)**: Physicians can seamlessly transfer patient access and clinical handover notes to available verified doctor specialists within the portal.
-* **Referral Management Dashboard (`🔄 Referrals Log`)**: Dedicated referral queue displaying incoming and outgoing cross-consultations with status tracking, sending doctor details, target doctor specialization, and clinical handover notes.
-* **Multi-Touch Referral Actions**: "Refer 🔄" action buttons integrated directly into Patient Cards, Appointment Queue items, and the AI Pre-Consultation Summary header for one-click referral modal launches.
-* **Real-Time Appointment Notifications**: Displays active notification banners when patients book appointments with the doctor, including referred patient bookings.
-* **Pre-Consultation AI Summary**: Generates clinical history snapshots, medication timelines, and safety alerts for assigned patients powered by Gemini API.
-* **Digital Checkup Completion & Signature**: Doctors can mark consultations as completed, record clinical notes, attach test result summaries, and sign with a verified digital doctor signature.
-* **Restricted Consultation Audit Log (`📜 Consulted Logs`)**: Dedicated audit log in the Doctor Dashboard restricted exclusively to patients who have completed checkups with that doctor.
-* **Real-Time Consultation Sync**: Completed consultation notes, test results, and doctor signatures instantly sync to the patient's dashboard.
-
-### 4. Interactive Patient Care & Reminders
-* **Interactive Medication & Appointment Reminders**: Patients can mark health reminders as completed, reset recurrence schedules, or update reminder status.
-* **Context-Preserving Specialist Booking**: Triage recommendations are passed via secure URL parameters directly into the booking engine.
+### 4. Doctor Portal, Data Isolation & Referral System
+* **Strict Patient Data Isolation**: Doctor directories (`/api/doctor/patients`) strictly display patients who have booked appointments with the logged-in doctor or have been formally referred to them.
+* **Doctor-to-Doctor Patient Referrals (`ReferralModel` & `/api/doctor/refer`)**: Physicians can transfer patient access and clinical handover notes to verified specialists within the portal.
+* **Digital Checkup Completion & Signature**: Doctors record clinical notes, attach test result summaries, and sign checkups with a verified digital signature.
+* **Real-Time Patient Sync**: Checkup notes, test summaries, and doctor signatures instantly update the patient's dashboard.
 
 ### 5. Admin Analytics & System Governance
-* **Recharts Healthcare Analytics**: High-fidelity dark-navy dashboard tracking:
-  * Missed follow-up rates (%)
-  * Patient compliance scores (%)
-  * Treatment timelines (average days to resolution)
-  * Department appointment bottlenecks (interactive volume bar charts)
-* **Real-Time System Registration Logs**: Separate, audit-ready registration logs for verified doctors and registered patients.
-* **LLM Operations Review**: Aggregated analytics sent to Gemini to generate concise operational recommendations and clinical solutions.
+* **Recharts Healthcare Analytics**: Dashboard tracking missed follow-up rates, compliance scores, treatment timelines, and department bottleneck bar charts.
+* **Partner Hospital Registry**: Overview of all collaborated hospitals, active doctor counts, and hospital admin accounts.
+* **Real-Time Registration Logs**: Comprehensive audit logs for verified doctors and registered patients.
 
 ---
 
-## 📁 Repository & Folder Architecture
+## 📁 Repository & Architecture Structure
 
 ```
 PD_SPACE/
@@ -58,13 +67,14 @@ PD_SPACE/
 │   ├── app/                                → Next.js App Router Structure
 │   │   ├── api/                            → Serverless API Routes
 │   │   │   ├── admin/
+│   │   │   │   ├── hospitals/route.ts      → Main Admin hospital application review & approval API
 │   │   │   │   ├── stats/route.ts          → Analytics calculation endpoint
 │   │   │   │   └── users/route.ts          → Doctor application approval/rejection & user log endpoint
 │   │   │   ├── alerts/route.ts             → Clinical safety alerts endpoint
-│   │   │   ├── appointments/route.ts       → Patient booking & doctor checkup completion endpoint
+│   │   │   ├── appointments/route.ts       → Patient booking & checkup completion endpoint
 │   │   │   ├── auth/[...nextauth]/route.ts → NextAuth authentication handler
 │   │   │   ├── doctor/
-│   │   │   │   ├── apply/route.ts          → Doctor verification form & 1-week cooling period API
+│   │   │   │   ├── apply/route.ts          → Dual-queue doctor verification & cooling period API
 │   │   │   │   ├── patients/route.ts       → Isolated assigned/referred patient list API
 │   │   │   │   ├── refer/route.ts          → Doctor-to-doctor patient referral creation & retrieval API
 │   │   │   │   ├── role/route.ts           → User role query API
@@ -74,6 +84,14 @@ PD_SPACE/
 │   │   │   ├── extract/route.ts            → AI document parsing endpoint
 │   │   │   ├── facilities/route.ts         → Nearby hospital & clinic location locator
 │   │   │   ├── health/route.ts             → Healthcheck ping endpoint
+│   │   │   ├── hospadmin/
+│   │   │   │   ├── doctors/route.ts        → Hospital Admin doctor approval/rejection API
+│   │   │   │   └── stats/route.ts          → Hospital-specific staff & consultation stats API
+│   │   │   ├── hospital/
+│   │   │   │   ├── apply/route.ts          → Public hospital partnership application submission API
+│   │   │   │   └── password/route.ts       → Hospital Admin password update API
+│   │   │   ├── hospitals/
+│   │   │   │   └── list/route.ts           → Approved partner hospitals directory API
 │   │   │   ├── ocr/route.ts                → Tesseract OCR text extraction endpoint
 │   │   │   ├── patient/
 │   │   │   │   └── profile/route.ts        → Compulsory patient EMR profile save & fetch API
@@ -81,13 +99,15 @@ PD_SPACE/
 │   │   ├── auth/                           → Sign-in & Sign-up views
 │   │   │   ├── login/page.tsx              → Credentials & Google login page
 │   │   │   └── register/page.tsx           → User registration page
-│   │   ├── dashboard/                      → App Role Dashboards
-│   │   │   ├── admin/page.tsx              → Admin analytics, doctor verification queue & user registration logs
-│   │   │   ├── doctor/page.tsx             → Doctor Portal (Verification Form, Data Isolation, Referrals Log & Co-pilot)
-│   │   │   └── patient/page.tsx            → Patient Portal (EMR Gate, Uploads, Triage, Appointments & Reminders)
+│   │   ├── dashboard/                      → Role Dashboards
+│   │   │   ├── admin/page.tsx              → Main Admin analytics, hospital collaboration management & doctor queue
+│   │   │   ├── doctor/page.tsx             → Doctor Portal (Verification Form, Hospital Selection & Data Isolation)
+│   │   │   └── patient/page.tsx            → Patient Portal (EMR Gate, Uploads, Triage & Reminders)
+│   │   ├── hospadmin/
+│   │   │   └── page.tsx                    → Hospital Admin Portal (Staff Approvals & Hospital Analytics)
 │   │   ├── globals.css                     → Design system & custom CSS variables
 │   │   ├── layout.tsx                      → Root application layout & NextAuth Provider wrapper
-│   │   └── page.tsx                        → Landing page
+│   │   └── page.tsx                        → Main Landing Page (`mediflow.shanmukhmedisetty.site`)
 │   ├── components/                         → Reusable UI Components
 │   │   ├── ConfirmExtraction.tsx           → Extraction verification modal
 │   │   ├── DocumentDetailModal.tsx         → Medical document viewer
@@ -100,20 +120,21 @@ PD_SPACE/
 │   │   └── Providers.tsx                   → NextAuth SessionProvider wrapper
 │   ├── lib/                                → Application Services & Core Libraries
 │   │   ├── alertEngine.ts                  → Drug conflict & missed follow-up logic
-│   │   ├── auth.ts                         → NextAuth options & credential providers
+│   │   ├── auth.ts                         → NextAuth options & credential providers (Hospital Admin support)
 │   │   ├── cron.ts                         → Automated clinical alert scheduler
 │   │   ├── db.ts                           → MongoDB Mongoose connection utility
 │   │   ├── firebase.ts                     → Firebase OAuth helper
 │   │   └── validation.ts                   → Input sanitization & schemas
-│   ├── middleware.ts                       → Route authentication & session guards
+│   ├── middleware.ts                       → Dynamic Subdomain Routing & Isolation Matrix
 │   ├── models/                             → Mongoose Database Schemas
 │   │   ├── alert.ts                        → Clinical alert model
-│   │   ├── appointment.ts                  → Patient booking & doctor consultation sign-off schema
+│   │   ├── appointment.ts                  → Patient booking & doctor sign-off schema
 │   │   ├── document.ts                     → Medical document metadata schema
+│   │   ├── hospital.ts                     → Hospital collaboration model
 │   │   ├── referral.ts                     → Doctor-to-doctor patient referral schema
-│   │   └── user.ts                         → User model with EMR profile & Doctor application profile
+│   │   └── user.ts                         → User model with EMR profile, Doctor profile & Hospital Admin credentials
 │   ├── types/                              → TypeScript Type Definitions
-│   │   ├── documents.ts                    → User, EMR Profile, Doctor Profile & Document interfaces
+│   │   ├── documents.ts                    → User, EMR Profile, Doctor Profile, Hospital & Document interfaces
 │   │   └── index.ts                        → Shared type exports
 │   └── utils/                              → Utility Helper Functions
 │       └── ocr.ts                          → Tesseract OCR helper utilities
@@ -130,8 +151,9 @@ PD_SPACE/
 * **Database & Storage**: MongoDB + Mongoose Schemas + GridFS (for PDF/image file storage)
 * **AI & Reasoning**: Google Gemini API (`gemini-1.5-flash` / Gemini 3.5 series)
 * **OCR Engine**: Tesseract.js (Multi-format image & document OCR processing)
-* **Analytics & Visualizations**: Recharts (Custom themed dark-navy healthcare analytics)
-* **Authentication**: NextAuth.js (Google OAuth, Credentials Auth & Developer Bypass Routes)
+* **Analytics & Visualizations**: Recharts (Healthcare analytics visuals)
+* **Authentication**: NextAuth.js (Google OAuth, Credentials Auth, Hospital Admin Credentials)
+* **Domain Routing**: Custom Next.js Subdomain Isolation Middleware
 
 ---
 
@@ -148,7 +170,7 @@ Create a `secrets.env` (or `.env.local`) file in the project root:
 MONGODB_URI=your_mongodb_connection_string
 GEMINI_API_KEY=your_gemini_api_key
 NEXTAUTH_SECRET=your_nextauth_session_secret
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_URL=https://mediflow.shanmukhmedisetty.site
 NEXT_PUBLIC_FASTAPI_URL=your_fastapi_microservice_url
 ```
 
@@ -156,12 +178,6 @@ NEXT_PUBLIC_FASTAPI_URL=your_fastapi_microservice_url
 ```bash
 npm run dev
 ```
-Open **http://localhost:3000** (or http://localhost:3001 if port 3000 is occupied).
-
-### 4. Developer Access Credentials
-For rapid walkthroughs and role testing in development mode:
-* **Patient Dev Bypass**: Logs in as `test-patient@mediflow.care`.
-* **Admin Access Credentials**: Logs in as primary admin (`heallink.care@gmail.com`) or test admin credentials (`mediflow@test.com` / `mediflow@2026`).
 
 ---
 
@@ -171,9 +187,6 @@ For rapid walkthroughs and role testing in development mode:
 # Type checking
 npm run type-check
 
-# Lint checks
-npm run lint
-
-# Production compilation
+# Build check
 npm run build
 ```

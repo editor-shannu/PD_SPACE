@@ -91,11 +91,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, department, licenseNumber, experienceYears, hospitalAffiliation, phone, qualifications } = body;
+    const { name, department, licenseNumber, experienceYears, hospitalAffiliation, hospitalId, doctorJoinType, phone, qualifications } = body;
 
-    if (!name || !department || !licenseNumber || !hospitalAffiliation || !phone) {
+    if (!name || !department || !licenseNumber || !phone) {
       return NextResponse.json(
-        { success: false, error: 'Please complete all required fields: Name, Department, License #, Hospital Affiliation, and Phone.' },
+        { success: false, error: 'Please complete all required fields: Name, Department, License #, and Phone.' },
         { status: 400 }
       );
     }
@@ -143,16 +143,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const joinType = doctorJoinType === 'hospital' ? 'hospital' : 'individual';
+    const finalAffiliation = joinType === 'hospital' ? (hospitalAffiliation || 'Collaborated Hospital') : 'Individual Practice';
+
     // Update user record with pending doctor profile
     user.name = name.trim();
     user.doctorApplicationStatus = 'pending';
     user.doctorRejectedAt = undefined;
     user.doctorRejectionReason = '';
+    user.hospitalId = joinType === 'hospital' ? hospitalId : undefined;
+    user.hospitalName = joinType === 'hospital' ? finalAffiliation : undefined;
     user.doctorProfile = {
       department: department.trim(),
       licenseNumber: licenseNumber.trim(),
       experienceYears: experienceYears ? String(experienceYears).trim() : '1+',
-      hospitalAffiliation: hospitalAffiliation.trim(),
+      hospitalAffiliation: finalAffiliation,
+      hospitalId: joinType === 'hospital' ? hospitalId : undefined,
+      doctorJoinType: joinType,
       phone: phone.trim(),
       qualifications: qualifications ? qualifications.trim() : '',
       appliedAt: new Date(),
@@ -160,9 +167,13 @@ export async function POST(req: NextRequest) {
 
     await user.save();
 
+    const reviewMsg = joinType === 'hospital' 
+      ? `Doctor application submitted! Your request has been sent directly to ${finalAffiliation} Hospital Administration for approval.` 
+      : 'Doctor application submitted! Your profile is under review by MediFlow Main Administrators.';
+
     return NextResponse.json({
       success: true,
-      message: 'Doctor application submitted successfully! Your profile is under review by MediFlow Administrators.',
+      message: reviewMsg,
       status: 'pending',
       doctorProfile: user.doctorProfile,
     });

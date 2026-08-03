@@ -125,6 +125,9 @@ export default function DoctorDashboardPage() {
   const [docDept, setDocDept] = useState('General Medicine');
   const [docLicense, setDocLicense] = useState('');
   const [docHospital, setDocHospital] = useState('');
+  const [docJoinType, setDocJoinType] = useState<'individual' | 'hospital'>('individual');
+  const [selectedHospitalId, setSelectedHospitalId] = useState('');
+  const [hospitalList, setHospitalList] = useState<any[]>([]);
   const [docPhone, setDocPhone] = useState('');
   const [docExp, setDocExp] = useState('5');
   const [docQuals, setDocQuals] = useState('MBBS, MD');
@@ -197,6 +200,18 @@ export default function DoctorDashboardPage() {
     }
   }, []);
 
+  const fetchHospitalsList = useCallback(async () => {
+    try {
+      const res = await fetch('/api/hospitals/list');
+      if (res.ok) {
+        const data = await res.json();
+        setHospitalList(data.hospitals || []);
+      }
+    } catch (err) {
+      console.error('Error fetching hospital list:', err);
+    }
+  }, []);
+
   // Submit doctor verification application
   const handleSubmitDoctorApp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -212,6 +227,8 @@ export default function DoctorDashboardPage() {
           department: docDept,
           licenseNumber: docLicense,
           hospitalAffiliation: docHospital,
+          doctorJoinType: docJoinType,
+          hospitalId: docJoinType === 'hospital' ? selectedHospitalId : undefined,
           phone: docPhone,
           experienceYears: docExp,
           qualifications: docQuals,
@@ -221,7 +238,11 @@ export default function DoctorDashboardPage() {
       if (res.ok && data.success) {
         setAppStatus('pending');
         setAppProfile(data.doctorProfile);
-        setAppSuccessMsg('Application submitted! Your profile is now under administrative review.');
+        setAppSuccessMsg(
+          docJoinType === 'hospital'
+            ? 'Application submitted! Your request has been sent directly to your Hospital Admin for review.'
+            : 'Application submitted! Your profile is now under Main Admin review.'
+        );
       } else {
         setAppFormError(data.error || 'Failed to submit doctor verification application.');
       }
@@ -346,6 +367,7 @@ export default function DoctorDashboardPage() {
       setDocName(session?.user?.name || '');
       fetchAvailableDoctors();
       fetchReferrals();
+      fetchHospitalsList();
       if (email === 'heallink.care@gmail.com' || email === 'mediflow@test.com' || userRole === 'admin') {
         setAppStatus('approved');
         fetchPatients('');
@@ -514,6 +536,52 @@ export default function DoctorDashboardPage() {
             </div>
           </div>
 
+          {/* Doctor Practice Type Selector */}
+          <div className="p-4 bg-sky-50/70 border border-sky-200 rounded-2xl space-y-3">
+            <label className="block text-xs font-black text-[#003893] uppercase tracking-wider">
+              Practice Type &amp; Approval Routing <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <label className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer transition ${
+                docJoinType === 'individual'
+                  ? 'bg-white border-[#003893] ring-2 ring-[#003893]/20 shadow-sm'
+                  : 'bg-white/50 border-gray-200 hover:bg-white'
+              }`}>
+                <input
+                  type="radio"
+                  name="doctorJoinType"
+                  value="individual"
+                  checked={docJoinType === 'individual'}
+                  onChange={() => setDocJoinType('individual')}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="font-extrabold text-[#003893]">Individual Practice</p>
+                  <p className="text-[10px] text-gray-500 font-semibold mt-0.5">Approval request goes directly to MediFlow Main Admin.</p>
+                </div>
+              </label>
+
+              <label className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer transition ${
+                docJoinType === 'hospital'
+                  ? 'bg-white border-[#003893] ring-2 ring-[#003893]/20 shadow-sm'
+                  : 'bg-white/50 border-gray-200 hover:bg-white'
+              }`}>
+                <input
+                  type="radio"
+                  name="doctorJoinType"
+                  value="hospital"
+                  checked={docJoinType === 'hospital'}
+                  onChange={() => setDocJoinType('hospital')}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="font-extrabold text-[#003893]">Hospital Affiliated</p>
+                  <p className="text-[10px] text-gray-500 font-semibold mt-0.5">Approval request goes directly to your Hospital Admin.</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-gray-600 mb-1">Medical License Number <span className="text-red-500">*</span></label>
@@ -527,17 +595,47 @@ export default function DoctorDashboardPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-gray-600 mb-1">Hospital / Clinic Affiliation <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                required
-                value={docHospital}
-                onChange={(e) => setDocHospital(e.target.value)}
-                placeholder="e.g. City General Hospital"
-                className="w-full p-3 rounded-2xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#2ab8d8] outline-none transition font-semibold text-xs"
-              />
-            </div>
+            {docJoinType === 'hospital' ? (
+              <div>
+                <label className="block text-gray-600 mb-1">Select Registered Partner Hospital <span className="text-red-500">*</span></label>
+                <select
+                  required
+                  value={selectedHospitalId}
+                  onChange={(e) => {
+                    setSelectedHospitalId(e.target.value);
+                    const selectedHosp = hospitalList.find(h => h.hospitalId === e.target.value);
+                    if (selectedHosp) {
+                      setDocHospital(selectedHosp.name);
+                    }
+                  }}
+                  className="w-full p-3 rounded-2xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#2ab8d8] outline-none transition font-semibold text-xs text-gray-700"
+                >
+                  <option value="">-- Choose Hospital --</option>
+                  {hospitalList.map((hosp) => (
+                    <option key={hosp.hospitalId} value={hosp.hospitalId}>
+                      🏥 {hosp.name} ({hosp.address})
+                    </option>
+                  ))}
+                </select>
+                {hospitalList.length === 0 && (
+                  <p className="text-[10px] text-amber-600 font-semibold mt-1">
+                    No approved partner hospitals currently found. You can enter hospital name manually below.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div>
+                <label className="block text-gray-600 mb-1">Hospital / Clinic Affiliation <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={docHospital}
+                  onChange={(e) => setDocHospital(e.target.value)}
+                  placeholder="e.g. City General Hospital"
+                  className="w-full p-3 rounded-2xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#2ab8d8] outline-none transition font-semibold text-xs"
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
