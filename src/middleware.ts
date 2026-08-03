@@ -14,8 +14,9 @@ export default async function middleware(request: NextRequest) {
   // Get session token
   const token = await getToken({ req: request, secret });
 
-  // Public API routes allow bypass
+  // Public API routes allow bypass (including NextAuth API endpoints)
   if (
+    pathname.startsWith('/api/auth') ||
     pathname === '/api/health' ||
     pathname === '/api/hospitals/list' ||
     pathname === '/api/hospital/apply'

@@ -3,10 +3,6 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { UserModel } from '@/models/user';
 import { connectDB } from '@/lib/db';
 
-if (process.env.NODE_ENV === 'production') {
-  process.env.NEXTAUTH_URL = 'https://mediflow.shanmukhmedisetty.site';
-}
-
 import { HospitalModel } from '@/models/hospital';
 
 export interface SessionUser extends NextAuthUser {
@@ -239,6 +235,19 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).hospitalName = token.hospitalName as string;
       }
       return session;
+    },
+  },
+
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.session-token' : 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        domain: process.env.NODE_ENV === 'production' ? '.shanmukhmedisetty.site' : undefined,
+      },
     },
   },
 
