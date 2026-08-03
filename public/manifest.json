@@ -4,10 +4,20 @@
   "description": "AI-Powered Healthcare Navigation & Verification Platform",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#2ab8d8",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#e8f4f8",
   "theme_color": "#2ab8d8",
   "orientation": "portrait-primary",
   "scope": "/",
+  "handle_links": "preferred",
+  "scope_extensions": [
+    { "origin": "*.shanmukhmedisetty.site" },
+    { "origin": "https://mediflow.shanmukhmedisetty.site" },
+    { "origin": "https://patient-mediflow.shanmukhmedisetty.site" },
+    { "origin": "https://doctor-mediflow.shanmukhmedisetty.site" },
+    { "origin": "https://medi-hospadmin.shanmukhmedisetty.site" },
+    { "origin": "https://admin-mediflow.shanmukhmedisetty.site" }
+  ],
   "icons": [
     {
       "src": "/icons/icon-72x72.png",

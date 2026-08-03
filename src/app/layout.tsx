@@ -62,6 +62,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   navigator.serviceWorker.register('/sw.js').catch(function() {});
                 });
               }
+              // Prevent PWA standalone mode from breaking out to external Chrome/Safari on cross-subdomain navigation
+              document.addEventListener('click', function(e) {
+                var anchor = e.target.closest('a');
+                if (anchor && anchor.href && anchor.href.indexOf('shanmukhmedisetty.site') !== -1) {
+                  if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+                    e.preventDefault();
+                    window.location.href = anchor.href;
+                  }
+                }
+              }, false);
             `,
           }}
         />

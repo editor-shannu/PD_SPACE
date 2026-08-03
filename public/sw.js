@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mediflow-v1';
+const CACHE_NAME = 'mediflow-v2';
 const STATIC_ASSETS = [
   '/',
   '/auth/login',
@@ -26,16 +26,21 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Only handle GET requests
   if (event.request.method !== 'GET') return;
-  // Skip API and auth routes — always network-first
+
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
+
+  // Skip cross-origin, API, and Auth requests — let browser handle network directly
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
     return;
   }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        if (response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
         return response;
       })
       .catch(() => caches.match(event.request))
