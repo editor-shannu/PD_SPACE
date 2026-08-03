@@ -127,33 +127,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     );
                   })}
                   {session?.user && ((session.user as any).role === 'doctor' || (session.user as any).role === 'admin') && (
-                    <Link
-                      href="/dashboard/doctor"
+                    <a
+                      href="https://doctor-mediflow.shanmukhmedisetty.site"
                       className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-[#2ab8d8] hover:bg-[#2ab8d8]/10 font-bold transition-all"
                     >
                       🩺 Doctor Console
-                    </Link>
+                    </a>
                   )}
                 </>
               ) : (
                 <>
-                  <Link
-                    href="/dashboard/doctor"
+                  <a
+                    href="https://doctor-mediflow.shanmukhmedisetty.site"
                     className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[#2ab8d8]/15 text-[#2ab8d8]"
                   >
                     🩺 Doctor Console
-                  </Link>
-                  <Link
-                    href="/dashboard/patient"
+                  </a>
+                  <a
+                    href="https://patient-mediflow.shanmukhmedisetty.site"
                     className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 hover:text-[#003893] hover:bg-gray-100/60 transition-all"
                   >
                     👤 Patient Dashboard
-                  </Link>
+                  </a>
                 </>
               )}
               {session?.user && ((session.user as any).role === 'admin' || (session.user as any).email === 'heallink.care@gmail.com') && (
-                <Link
-                  href="/dashboard/admin"
+                <a
+                  href="https://admin-mediflow.shanmukhmedisetty.site"
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
                     pathname === '/dashboard/admin'
                       ? 'bg-[#003893]/15 text-[#003893]'
@@ -161,7 +161,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   }`}
                 >
                   🛡️ Admin Panel
-                </Link>
+                </a>
               )}
             </nav>
 
@@ -229,26 +229,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               );
             })}
             {session?.user && ((session.user as any).role === 'doctor' || (session.user as any).role === 'admin') && (
-              <Link
-                href="/dashboard/doctor"
+              <a
+                href="https://doctor-mediflow.shanmukhmedisetty.site"
                 className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 ${
                   pathname === '/dashboard/doctor' ? 'text-[#2ab8d8] font-bold' : 'text-gray-400 hover:text-gray-600'
                 }`}
               >
                 <span className="text-base">🩺</span>
                 <span className="text-[9px] font-bold uppercase tracking-wider">Doctor</span>
-              </Link>
+              </a>
             )}
             {session?.user && ((session.user as any).role === 'admin' || (session.user as any).email === 'heallink.care@gmail.com') && (
-              <Link
-                href="/dashboard/admin"
+              <a
+                href="https://admin-mediflow.shanmukhmedisetty.site"
                 className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 ${
                   pathname === '/dashboard/admin' ? 'text-[#003893] font-bold' : 'text-gray-400 hover:text-gray-600'
                 }`}
               >
                 <span className="text-base">🛡️</span>
                 <span className="text-[9px] font-bold uppercase tracking-wider">Admin</span>
-              </Link>
+              </a>
             )}
             {/* Sign Out */}
             <button

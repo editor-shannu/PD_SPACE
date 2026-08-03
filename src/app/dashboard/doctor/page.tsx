@@ -467,7 +467,7 @@ export default function DoctorDashboardPage() {
 
         <div className="pt-2 flex justify-center">
           <button
-            onClick={() => router.push('/dashboard/patient')}
+            onClick={() => window.location.href = 'https://patient-mediflow.shanmukhmedisetty.site'}
             className="px-6 py-3 bg-[#003893] hover:bg-[#002868] text-white text-xs font-extrabold rounded-2xl transition shadow-md"
           >
             Go to Patient Dashboard →
@@ -677,7 +677,7 @@ export default function DoctorDashboardPage() {
           <div className="pt-4 flex items-center justify-between border-t border-gray-100">
             <button
               type="button"
-              onClick={() => router.push('/dashboard/patient')}
+              onClick={() => window.location.href = 'https://patient-mediflow.shanmukhmedisetty.site'}
               className="px-5 py-2.5 rounded-2xl bg-gray-100 text-gray-600 font-bold hover:bg-gray-200 transition"
             >
               Cancel &amp; Go to Patient Portal
@@ -735,7 +735,7 @@ export default function DoctorDashboardPage() {
             🔄 Refresh Status
           </button>
           <button
-            onClick={() => router.push('/dashboard/patient')}
+            onClick={() => window.location.href = 'https://patient-mediflow.shanmukhmedisetty.site'}
             className="w-full sm:w-auto px-6 py-2.5 rounded-2xl bg-white border border-amber-300 text-amber-900 font-extrabold text-xs hover:bg-amber-100 transition"
           >
             Go to Patient Dashboard
@@ -805,7 +805,7 @@ export default function DoctorDashboardPage() {
           )}
 
           <button
-            onClick={() => router.push('/dashboard/patient')}
+            onClick={() => window.location.href = 'https://patient-mediflow.shanmukhmedisetty.site'}
             className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-white border border-gray-200 text-gray-700 font-extrabold text-xs hover:bg-gray-50 transition"
           >
             Go to Patient Dashboard
