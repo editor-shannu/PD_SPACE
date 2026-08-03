@@ -245,12 +245,12 @@ export default function AdminDashboard() {
         </p>
         <p className="text-gray-400 text-xs mb-6">Only users with the admin role in MongoDB are authorized to view this dashboard.</p>
         <div className="flex flex-col gap-2">
-          <Link
-            href="/dashboard/patient"
-            className="w-full py-2 bg-[#2ab8d8] hover:bg-[#1fb1d1] text-white rounded-xl text-xs font-bold transition"
+          <a
+            href="https://patient-mediflow.shanmukhmedisetty.site"
+            className="w-full py-2 bg-[#2ab8d8] hover:bg-[#1fb1d1] text-white rounded-xl text-xs font-bold transition block text-center"
           >
             Go to Patient Dashboard
-          </Link>
+          </a>
           <Link
             href="/auth/login"
             className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition border border-gray-200"

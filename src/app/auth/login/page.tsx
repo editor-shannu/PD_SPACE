@@ -30,7 +30,7 @@ function isMobileDevice(): boolean {
 function LoginForm() {
   const router     = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl  = searchParams.get('callbackUrl') || '/dashboard/patient';
+  const callbackUrl  = searchParams.get('callbackUrl') || 'https://patient-mediflow.shanmukhmedisetty.site';
 
   const [error,     setError]     = useState('');
   const [isLoading, setLoading]   = useState(false);
@@ -249,7 +249,7 @@ function LoginForm() {
 
                 const emailLower = email.toLowerCase().trim();
                 if (emailLower === 'mediflow@test.com' || emailLower === 'heallink.care@gmail.com') {
-                  window.location.href = '/dashboard/admin';
+                  window.location.href = 'https://admin-mediflow.shanmukhmedisetty.site';
                 } else {
                   window.location.href = callbackUrl;
                 }
