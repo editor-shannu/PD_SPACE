@@ -134,6 +134,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       🩺 Doctor Console
                     </a>
                   )}
+                  <a
+                    href="https://mediflow.shanmukhmedisetty.site"
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-gray-500 hover:text-[#003893] hover:bg-gray-100/60 transition-all"
+                  >
+                    🌐 Main Site
+                  </a>
                 </>
               ) : (
                 <>
@@ -148,6 +154,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 hover:text-[#003893] hover:bg-gray-100/60 transition-all"
                   >
                     👤 Patient Dashboard
+                  </a>
+                  <a
+                    href="https://mediflow.shanmukhmedisetty.site"
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-gray-500 hover:text-[#003893] hover:bg-gray-100/60 transition-all"
+                  >
+                    🌐 Main Site
                   </a>
                 </>
               )}

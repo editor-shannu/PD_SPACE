@@ -401,9 +401,9 @@ function LoginForm() {
             <span className="text-[#003893] font-semibold cursor-pointer hover:underline">Privacy Policy</span>.
           </p>
 
-          <Link href="/" className="text-gray-400 text-sm hover:text-[#2ab8d8] transition pb-2">
+          <a href="https://mediflow.shanmukhmedisetty.site/" className="text-gray-400 text-sm hover:text-[#2ab8d8] transition pb-2 font-medium">
             ← Back to home
-          </Link>
+          </a>
         </div>
 
       </div>
