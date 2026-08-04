@@ -14,12 +14,13 @@ export default async function middleware(request: NextRequest) {
   // Get session token
   const token = await getToken({ req: request, secret });
 
-  // Public API routes allow bypass (including NextAuth API endpoints)
+  // Public API & Portal routes allow bypass (including NextAuth API endpoints & HospAdmin portal)
   if (
     pathname.startsWith('/api/auth') ||
     pathname === '/api/health' ||
     pathname === '/api/hospitals/list' ||
-    pathname === '/api/hospital/apply'
+    pathname === '/api/hospital/apply' ||
+    pathname.startsWith('/hospadmin')
   ) {
     return NextResponse.next();
   }
@@ -70,11 +71,6 @@ export default async function middleware(request: NextRequest) {
   // 2. HOSPITAL ADMIN DOMAIN: medi-hospadmin.shanmukhmedisetty.site
   else if (host.includes('medi-hospadmin.shanmukhmedisetty.site')) {
     if (pathname === '/' || pathname === '/dashboard') {
-      if (!token) {
-        const loginUrl = new URL('/auth/login', request.url);
-        loginUrl.searchParams.set('callbackUrl', '/hospadmin');
-        return NextResponse.redirect(loginUrl);
-      }
       return NextResponse.rewrite(new URL('/hospadmin', request.url));
     }
     if (
@@ -83,13 +79,6 @@ export default async function middleware(request: NextRequest) {
       pathname.startsWith('/dashboard/admin')
     ) {
       return NextResponse.redirect(new URL('/hospadmin', request.url));
-    }
-    if (pathname.startsWith('/hospadmin')) {
-      if (!token) {
-        const loginUrl = new URL('/auth/login', request.url);
-        loginUrl.searchParams.set('callbackUrl', pathname);
-        return NextResponse.redirect(loginUrl);
-      }
     }
   }
 

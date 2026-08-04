@@ -11,6 +11,7 @@ export default function HospitalAdminPage() {
   // Auth / Form states
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -44,6 +45,7 @@ export default function HospitalAdminPage() {
   // Settings / Password change
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [passMsg, setPassMsg] = useState<{ text: string; isError: boolean } | null>(null);
   const [isChangingPass, setIsChangingPass] = useState(false);
 
@@ -117,10 +119,15 @@ export default function HospitalAdminPage() {
         redirect: false,
       });
 
-      if (res?.error) {
-        setLoginError(res.error || 'Invalid Hospital Admin credentials or temporary password.');
+      if (!res || res.error || !res.ok) {
+        if (res?.error && res.error !== 'CredentialsSignin') {
+          setLoginError(res.error);
+        } else {
+          setLoginError('Invalid Hospital ID / Email or Password. Please verify your credentials.');
+        }
       } else {
-        window.location.href = '/hospadmin';
+        // Successful login: reload window to populate NextAuth session
+        window.location.reload();
       }
     } catch (err: any) {
       setLoginError('Sign in failed. Please try again.');
@@ -664,24 +671,36 @@ export default function HospitalAdminPage() {
 
                         <div>
                           <label className="block text-xs font-bold text-gray-500 uppercase text-[10px] mb-1">New Password</label>
-                          <input
-                            type="password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="Minimum 6 characters"
-                            className="w-full bg-gray-50/80 border border-gray-200 rounded-2xl px-3.5 py-2.5 text-xs text-gray-800 font-semibold focus:outline-none focus:ring-2 focus:ring-[#2ab8d8]"
-                          />
+                          <div className="relative">
+                            <input
+                              type={showNewPassword ? 'text' : 'password'}
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              placeholder="Minimum 6 characters"
+                              className="w-full bg-gray-50/80 border border-gray-200 rounded-2xl px-3.5 py-2.5 pr-10 text-xs text-gray-800 font-semibold focus:outline-none focus:ring-2 focus:ring-[#2ab8d8]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNewPassword(!showNewPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#003893] transition text-xs font-bold"
+                              title={showNewPassword ? 'Hide password' : 'Show password'}
+                            >
+                              {showNewPassword ? '🙈 Hide' : '👁️ Show'}
+                            </button>
+                          </div>
                         </div>
 
                         <div>
                           <label className="block text-xs font-bold text-gray-500 uppercase text-[10px] mb-1">Confirm New Password</label>
-                          <input
-                            type="password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Re-enter new password"
-                            className="w-full bg-gray-50/80 border border-gray-200 rounded-2xl px-3.5 py-2.5 text-xs text-gray-800 font-semibold focus:outline-none focus:ring-2 focus:ring-[#2ab8d8]"
-                          />
+                          <div className="relative">
+                            <input
+                              type={showNewPassword ? 'text' : 'password'}
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              placeholder="Re-enter new password"
+                              className="w-full bg-gray-50/80 border border-gray-200 rounded-2xl px-3.5 py-2.5 pr-10 text-xs text-gray-800 font-semibold focus:outline-none focus:ring-2 focus:ring-[#2ab8d8]"
+                            />
+                          </div>
                         </div>
 
                         <button
@@ -742,13 +761,23 @@ export default function HospitalAdminPage() {
 
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase text-[10px] mb-1">Password</label>
-                    <input
-                      type="password"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      placeholder="Enter temporary or permanent password"
-                      className="w-full bg-gray-50/80 border border-gray-200 rounded-2xl px-3.5 py-2.5 text-xs text-gray-800 font-semibold focus:outline-none focus:ring-2 focus:ring-[#2ab8d8] transition"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showLoginPassword ? 'text' : 'password'}
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        placeholder="Enter temporary or permanent password"
+                        className="w-full bg-gray-50/80 border border-gray-200 rounded-2xl px-3.5 py-2.5 pr-12 text-xs text-gray-800 font-semibold focus:outline-none focus:ring-2 focus:ring-[#2ab8d8] transition"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#003893] transition text-xs font-bold"
+                        title={showLoginPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showLoginPassword ? '🙈 Hide' : '👁️ Show'}
+                      </button>
+                    </div>
                   </div>
 
                   <button
