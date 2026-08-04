@@ -41,59 +41,91 @@ export const authOptions: NextAuthOptions = {
 
         // 1. Check Hospital Admin login credentials
         if (isHospitalAuth || password) {
-          // Check if identifier matches a Hospital Admin ID or Hospital Admin Email
-          const hospital = await HospitalModel.findOne({
+          const cleanIdentifier = inputIdentifier.trim();
+          const cleanEmail = cleanIdentifier.toLowerCase();
+          const idRegex = new RegExp(`^${cleanIdentifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+
+          // Check if identifier matches a Hospital Admin ID or Hospital Admin Email (case-insensitive)
+          const hospital: any = await HospitalModel.findOne({
             $or: [
-              { 'credentials.hospitalAdminId': inputIdentifier },
-              { 'credentials.hospitalAdminEmail': inputIdentifier.toLowerCase() },
-              { hospitalId: inputIdentifier },
-              { applicantGoogleEmail: inputIdentifier.toLowerCase() },
+              { 'credentials.hospitalAdminId': idRegex },
+              { 'credentials.hospitalAdminEmail': cleanEmail },
+              { hospitalId: idRegex },
+              { applicantGoogleEmail: cleanEmail },
+              { contactEmail: cleanEmail },
             ],
             status: 'approved',
           });
 
           if (hospital) {
-            // Validate password against rawTempPassword or passwordHash or user account
-            const storedPassword = hospital.credentials?.rawTempPassword || hospital.credentials?.passwordHash;
-            if (password && storedPassword && password === storedPassword) {
+            const rawPass = hospital.credentials?.rawTempPassword?.trim();
+            const hashPass = hospital.credentials?.passwordHash?.trim();
+            const cleanInputPass = password ? password.trim() : '';
+
+            // 1a. Direct match against hospital credentials
+            if (cleanInputPass && ((rawPass && cleanInputPass === rawPass) || (hashPass && cleanInputPass === hashPass))) {
+              const adminEmail = (hospital.credentials?.hospitalAdminEmail || hospital.contactEmail || hospital.applicantGoogleEmail).toLowerCase().trim();
+
+              // Ensure UserModel is synced with hospital_admin role & password
+              let uAdmin = await UserModel.findOne({
+                $or: [
+                  { email: adminEmail },
+                  { hospitalId: hospital.hospitalId },
+                ],
+              });
+              if (uAdmin) {
+                uAdmin.role = 'hospital_admin';
+                uAdmin.hospitalId = hospital.hospitalId;
+                uAdmin.hospitalName = hospital.name;
+                uAdmin.password = cleanInputPass;
+                await uAdmin.save();
+              }
+
               return {
                 id: hospital.hospitalId,
-                email: hospital.credentials.hospitalAdminEmail || hospital.applicantGoogleEmail,
+                email: adminEmail,
                 name: `${hospital.name} Admin`,
                 role: 'hospital_admin',
                 hospitalId: hospital.hospitalId,
                 hospitalName: hospital.name,
               } as SessionUser;
-            } else if (password) {
-              // Also check if UserModel exists with password
+            }
+
+            // 1b. Match against UserModel password linked to this hospital
+            if (cleanInputPass) {
               const userHosp = await UserModel.findOne({
-                email: inputIdentifier.toLowerCase(),
+                $or: [
+                  { email: cleanEmail },
+                  { hospitalId: hospital.hospitalId },
+                ],
                 role: 'hospital_admin',
               });
-              if (userHosp && userHosp.password === password) {
+
+              if (userHosp && userHosp.password && userHosp.password.trim() === cleanInputPass) {
                 return {
                   id: userHosp._id.toString(),
                   email: userHosp.email,
-                  name: userHosp.name,
+                  name: userHosp.name || `${hospital.name} Admin`,
                   role: 'hospital_admin',
                   hospitalId: userHosp.hospitalId || hospital.hospitalId,
                   hospitalName: userHosp.hospitalName || hospital.name,
                 } as SessionUser;
               }
-              throw new Error('Invalid Hospital Admin credentials or password.');
             }
+
+            throw new Error('Invalid Hospital Admin credentials or password.');
           }
 
-          // Check if user is registered in UserModel as hospital_admin directly
+          // Fallback: Check if user is registered in UserModel as hospital_admin directly
           const hospUser = await UserModel.findOne({
             $or: [
-              { email: inputIdentifier.toLowerCase() },
-              { hospitalId: inputIdentifier },
+              { email: cleanEmail },
+              { hospitalId: idRegex },
             ],
             role: 'hospital_admin',
           });
 
-          if (hospUser && password && hospUser.password === password) {
+          if (hospUser && password && hospUser.password && hospUser.password.trim() === password.trim()) {
             return {
               id: hospUser._id.toString(),
               email: hospUser.email,
@@ -161,34 +193,55 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, user }) {
-      if (token.email?.toLowerCase().trim() === 'heallink.care@gmail.com') {
+      const userEmail = token.email?.toLowerCase().trim();
+
+      if (userEmail === 'heallink.care@gmail.com') {
         token.role = 'admin';
       }
+
       if (user) {
         token.id           = user.id;
         token.email        = user.email;
         token.name         = user.name;
         token.picture      = user.image;
-        token.role         = token.email?.toLowerCase().trim() === 'heallink.care@gmail.com' ? 'admin' : ((user as SessionUser).role || 'patient');
+        token.role         = userEmail === 'heallink.care@gmail.com' ? 'admin' : ((user as SessionUser).role || 'patient');
         token.hospitalId   = (user as SessionUser).hospitalId;
         token.hospitalName = (user as SessionUser).hospitalName;
-      } else if (token.email) {
+      } else if (userEmail) {
         try {
           await connectDB();
-          const dbUser: any = await UserModel.findOne({ email: token.email }).select('role doctorApplicationStatus hospitalId hospitalName').lean();
-          if (dbUser) {
-            if (token.email.toLowerCase().trim() === 'heallink.care@gmail.com') {
-              token.role = 'admin';
-            } else if (dbUser.role === 'hospital_admin') {
+          if (userEmail === 'heallink.care@gmail.com') {
+            token.role = 'admin';
+          } else {
+            // Check if user is a Hospital Admin in HospitalModel
+            const approvedHospital: any = await HospitalModel.findOne({
+              $or: [
+                { applicantGoogleEmail: userEmail },
+                { 'credentials.hospitalAdminEmail': userEmail },
+                { contactEmail: userEmail },
+              ],
+              status: 'approved',
+            }).lean();
+
+            if (approvedHospital) {
               token.role = 'hospital_admin';
-              token.hospitalId = dbUser.hospitalId;
-              token.hospitalName = dbUser.hospitalName;
-            } else if (dbUser.doctorApplicationStatus === 'approved' || dbUser.role === 'doctor' || dbUser.role === 'admin') {
-              token.role = dbUser.role === 'admin' ? 'admin' : 'doctor';
-              token.hospitalId = dbUser.hospitalId;
-              token.hospitalName = dbUser.hospitalName;
+              token.hospitalId = approvedHospital.hospitalId;
+              token.hospitalName = approvedHospital.name;
             } else {
-              token.role = dbUser.role || 'patient';
+              const dbUser: any = await UserModel.findOne({ email: userEmail }).select('role doctorApplicationStatus hospitalId hospitalName').lean();
+              if (dbUser) {
+                if (dbUser.role === 'hospital_admin') {
+                  token.role = 'hospital_admin';
+                  token.hospitalId = dbUser.hospitalId;
+                  token.hospitalName = dbUser.hospitalName;
+                } else if (dbUser.doctorApplicationStatus === 'approved' || dbUser.role === 'doctor' || dbUser.role === 'admin') {
+                  token.role = dbUser.role === 'admin' ? 'admin' : 'doctor';
+                  token.hospitalId = dbUser.hospitalId;
+                  token.hospitalName = dbUser.hospitalName;
+                } else {
+                  token.role = dbUser.role || 'patient';
+                }
+              }
             }
           }
         } catch (e) {

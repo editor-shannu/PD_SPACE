@@ -111,16 +111,16 @@ export default function HospitalAdminPage() {
       setLoginError('');
 
       const res = await signIn('credentials', {
-        email: loginIdentifier,
-        password: loginPassword,
+        email: loginIdentifier.trim(),
+        password: loginPassword.trim(),
         hospitalAuth: 'true',
         redirect: false,
       });
 
       if (res?.error) {
-        setLoginError('Invalid Hospital Admin credentials or temporary password.');
+        setLoginError(res.error || 'Invalid Hospital Admin credentials or temporary password.');
       } else {
-        window.location.reload();
+        window.location.href = '/hospadmin';
       }
     } catch (err: any) {
       setLoginError('Sign in failed. Please try again.');
