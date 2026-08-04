@@ -195,52 +195,47 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       const userEmail = token.email?.toLowerCase().trim();
 
-      if (userEmail === 'heallink.care@gmail.com') {
-        token.role = 'admin';
-      }
-
       if (user) {
         token.id           = user.id;
         token.email        = user.email;
         token.name         = user.name;
         token.picture      = user.image;
-        token.role         = userEmail === 'heallink.care@gmail.com' ? 'admin' : ((user as SessionUser).role || 'patient');
+        token.role         = (user as SessionUser).role || (userEmail === 'heallink.care@gmail.com' ? 'admin' : 'patient');
         token.hospitalId   = (user as SessionUser).hospitalId;
         token.hospitalName = (user as SessionUser).hospitalName;
       } else if (userEmail) {
         try {
           await connectDB();
-          if (userEmail === 'heallink.care@gmail.com') {
+          // Check if user is a Hospital Admin in HospitalModel
+          const approvedHospital: any = await HospitalModel.findOne({
+            $or: [
+              { applicantGoogleEmail: userEmail },
+              { 'credentials.hospitalAdminEmail': userEmail },
+              { contactEmail: userEmail },
+              { hospitalId: token.hospitalId || '' },
+            ],
+            status: 'approved',
+          }).lean();
+
+          if (approvedHospital) {
+            token.role = 'hospital_admin';
+            token.hospitalId = approvedHospital.hospitalId;
+            token.hospitalName = approvedHospital.name;
+          } else if (userEmail === 'heallink.care@gmail.com') {
             token.role = 'admin';
           } else {
-            // Check if user is a Hospital Admin in HospitalModel
-            const approvedHospital: any = await HospitalModel.findOne({
-              $or: [
-                { applicantGoogleEmail: userEmail },
-                { 'credentials.hospitalAdminEmail': userEmail },
-                { contactEmail: userEmail },
-              ],
-              status: 'approved',
-            }).lean();
-
-            if (approvedHospital) {
-              token.role = 'hospital_admin';
-              token.hospitalId = approvedHospital.hospitalId;
-              token.hospitalName = approvedHospital.name;
-            } else {
-              const dbUser: any = await UserModel.findOne({ email: userEmail }).select('role doctorApplicationStatus hospitalId hospitalName').lean();
-              if (dbUser) {
-                if (dbUser.role === 'hospital_admin') {
-                  token.role = 'hospital_admin';
-                  token.hospitalId = dbUser.hospitalId;
-                  token.hospitalName = dbUser.hospitalName;
-                } else if (dbUser.doctorApplicationStatus === 'approved' || dbUser.role === 'doctor' || dbUser.role === 'admin') {
-                  token.role = dbUser.role === 'admin' ? 'admin' : 'doctor';
-                  token.hospitalId = dbUser.hospitalId;
-                  token.hospitalName = dbUser.hospitalName;
-                } else {
-                  token.role = dbUser.role || 'patient';
-                }
+            const dbUser: any = await UserModel.findOne({ email: userEmail }).select('role doctorApplicationStatus hospitalId hospitalName').lean();
+            if (dbUser) {
+              if (dbUser.role === 'hospital_admin') {
+                token.role = 'hospital_admin';
+                token.hospitalId = dbUser.hospitalId;
+                token.hospitalName = dbUser.hospitalName;
+              } else if (dbUser.doctorApplicationStatus === 'approved' || dbUser.role === 'doctor' || dbUser.role === 'admin') {
+                token.role = dbUser.role === 'admin' ? 'admin' : 'doctor';
+                token.hospitalId = dbUser.hospitalId;
+                token.hospitalName = dbUser.hospitalName;
+              } else {
+                token.role = dbUser.role || 'patient';
               }
             }
           }

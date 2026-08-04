@@ -49,19 +49,25 @@ export default function HospitalAdminPage() {
   const [passMsg, setPassMsg] = useState<{ text: string; isError: boolean } | null>(null);
   const [isChangingPass, setIsChangingPass] = useState(false);
 
+  const isHospitalAdmin = session?.user && (
+    (session.user as any).role === 'hospital_admin' ||
+    Boolean((session.user as any).hospitalId) ||
+    appStatus === 'approved'
+  );
+
   // Check application status if user logged in via Google
   useEffect(() => {
-    if (session?.user && (session.user as any).role !== 'hospital_admin') {
+    if (session?.user) {
       fetchAppStatus();
     }
   }, [session]);
 
   // Fetch hospital dashboard data if user is hospital_admin
   useEffect(() => {
-    if (session?.user && (session.user as any).role === 'hospital_admin') {
+    if (session?.user && isHospitalAdmin) {
       fetchDashboardData();
     }
-  }, [session]);
+  }, [session, isHospitalAdmin]);
 
   const fetchAppStatus = async () => {
     try {
@@ -276,8 +282,6 @@ export default function HospitalAdminPage() {
       setSpecialties([...specialties, spec]);
     }
   };
-
-  const isHospitalAdmin = session?.user && (session.user as any).role === 'hospital_admin';
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#e8f4f8] via-[#f0f8fc] to-[#f5fbff] text-gray-800 flex flex-col font-sans selection:bg-[#2ab8d8] selection:text-white">

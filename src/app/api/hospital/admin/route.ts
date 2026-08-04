@@ -9,10 +9,30 @@ import { AppointmentModel } from '@/models/appointment';
 async function checkHospitalAdmin() {
   const session = await getServerSession(authOptions);
   const user = session?.user as any;
-  if (!user || user.role !== 'hospital_admin' || !user.email) {
+  if (!user || !user.email) {
     return { authorized: false, session: null, hospitalId: null, email: null };
   }
-  return { authorized: true, session, hospitalId: user.hospitalId, email: user.email as string };
+
+  if (user.role === 'hospital_admin' || user.hospitalId) {
+    return { authorized: true, session, hospitalId: user.hospitalId, email: user.email as string };
+  }
+
+  await connectDB();
+  const cleanEmail = user.email.toLowerCase().trim();
+  const approvedHospital: any = await HospitalModel.findOne({
+    $or: [
+      { applicantGoogleEmail: cleanEmail },
+      { 'credentials.hospitalAdminEmail': cleanEmail },
+      { contactEmail: cleanEmail },
+    ],
+    status: 'approved',
+  }).lean();
+
+  if (approvedHospital) {
+    return { authorized: true, session, hospitalId: approvedHospital.hospitalId, email: user.email as string };
+  }
+
+  return { authorized: false, session: null, hospitalId: null, email: null };
 }
 
 /**
