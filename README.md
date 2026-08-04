@@ -1,12 +1,12 @@
 # 🏥 MediFlow — AI-Powered Multi-Tenant Healthcare Ecosystem
 
-MediFlow is a modern, enterprise-grade multi-tenant healthcare platform designed to streamline patient onboarding, automate clinical triaging via Gemini AI, support isolated hospital administration portals across dedicated subdomains, and deliver real-time analytics for health administrators and physicians.
+MediFlow is a modern, enterprise-grade multi-tenant healthcare platform designed to streamline patient onboarding, automate clinical triaging via Gemini AI, support isolated hospital administration portals across dedicated subdomains, enforce bcrypt credential security, and deliver real-time analytics for health administrators and physicians.
 
 ---
 
 ## 🌐 Subdomain Routing & Isolation Architecture
 
-MediFlow uses dynamic, domain-level routing enforced by Next.js middleware (`middleware.ts`) to isolate roles, ensure data privacy, and eliminate route collisions across dedicated subdomains:
+MediFlow uses dynamic, domain-level routing enforced by Next.js middleware (`src/middleware.ts`) to isolate roles, ensure data privacy, and eliminate route collisions across dedicated subdomains:
 
 | Subdomain Domain | Portal View | Description & Access Control |
 | :--- | :--- | :--- |
@@ -18,19 +18,26 @@ MediFlow uses dynamic, domain-level routing enforced by Next.js middleware (`mid
 
 ---
 
-## 🌟 Comprehensive Feature Overview
+## 🌟 Key Features & Recent Security Updates
 
-### 1. Multi-Tenant Hospital Collaboration & Administration
-* **Hospital Partnership Onboarding (`/api/hospital/apply`)**: Hospitals submit collaboration requests directly from the landing page or API, specifying legal name, address, contact email, phone, bed capacity, specialties, and collaboration goals.
+### 🔐 1. Robust Password Security & Encryption (Bcrypt Hashing)
+* **Bcrypt Password Hashing (`bcryptjs`)**: All user and hospital administrator credentials are stored using salted 10-round bcrypt hashes in `HospitalModel` and `UserModel`.
+* **Seamless Legacy Auto-Upgrade**: Plain-text passwords are transparently hashed and updated in MongoDB upon successful login without disrupting existing sessions.
+* **Password Rotation & Erasure (`/api/hospital/admin`)**: Changing passwords updates hashes securely and completely erases temporary raw credentials (`rawTempPassword`).
+* **Console & Network Payload Sanitization**: API responses (`/api/admin/hospitals`, `/api/hospital/apply`) strictly exclude `passwordHash` and internal secrets, preventing credential leakage in browser inspection tools or DevTools console.
+* **Show/Hide Password UI**: Interactive password visibility toggle integrated across credential login interfaces.
+
+### 🏢 2. Multi-Tenant Hospital Collaboration & Administration
+* **Hospital Partnership Onboarding (`/api/hospital/apply`)**: Hospitals submit collaboration requests directly from the landing page, detailing legal name, address, contact email, phone, bed capacity, specialties, and collaboration goals.
 * **Main Admin Review & Approval (`/api/admin/hospitals`)**: Main Administrators review pending hospital applications, inspect bed capacity/specialties, and execute one-click **Approve** or **Reject** decisions.
-* **Automated Credential & Hospital ID Generation**: Upon approval, the system programmatically generates a unique `Hospital ID` (e.g. `HOSP-8F92A`) and creates a secure `hospital_admin` user account with temporary login credentials.
-* **Dedicated Hospital Admin Dashboard (`/hospadmin`)**: Hospital administrators sign in via `medi-hospadmin.shanmukhmedisetty.site` using their generated Hospital ID / email. Provides an isolated workspace to:
+* **Automated Credential & Hospital ID Generation**: Upon approval, the system programmatically generates a unique `Hospital ID` (e.g. `HOSP-8F92A`) and creates a secure `hospital_admin` user account with salted bcrypt hashes.
+* **Dedicated Hospital Admin Dashboard (`/hospadmin`)**: Hospital administrators sign in via `medi-hospadmin.shanmukhmedisetty.site` using their generated Hospital ID / email to:
   * Review and approve/reject doctor verification requests submitted specifically for their hospital.
   * View active staff doctor rosters and hospital doctor counts.
   * Monitor patient consultation volume and hospital clinical statistics.
-* **Hospital Credentials Rotation (`/api/hospital/password`)**: Enables hospital administrators to securely update their login credentials and rotate temporary passwords.
+* **Hospital Credentials Rotation (`/api/hospital/password`)**: Enables hospital administrators to securely update their login credentials.
 
-### 2. Dual-Queue Doctor Verification & Affiliation Routing
+### 🩺 3. Dual-Queue Doctor Verification & Affiliation Routing
 * **Practice Type Selection**: Doctors registering on the platform choose between two affiliation paths:
   1. **Individual Practice Doctor**: Request routes directly to the **Main Admin** (`admin-mediflow.shanmukhmedisetty.site`) approval queue.
   2. **Hospital Affiliated Doctor**: Doctor selects an approved partner hospital from the live hospital directory (`/api/hospitals/list`), routing their verification request directly to that specific **Hospital Admin** (`medi-hospadmin.shanmukhmedisetty.site`).
@@ -38,122 +45,145 @@ MediFlow uses dynamic, domain-level routing enforced by Next.js middleware (`mid
 * **Patient Account Restriction**: Patient accounts are prevented from logging into the Doctor Portal.
 * **Mandatory 1-Week (7-Day) Cooling Period**: If rejected, an automated 7-day waiting period is enforced by API (`/api/doctor/apply`) and UI, displaying a live countdown before re-applying.
 
-### 3. Patient Portal & EMR Management Pipeline
+### 📋 4. Patient Portal & EMR Management Pipeline
 * **Compulsory EMR Onboarding & Access Gate (`PatientEmrGate`)**: Mandatory EMR form (Personal Details, Blood Group, Emergency Contact, Pre-existing Conditions, Allergies, Current Medications, Address) for all new registered patients.
 * **On-Demand Lifetime EMR Editing (`EmrFormModal`)**: Patients can view or update their medical profile anytime directly on their dashboard.
 * **Smart Medical Document Upload (`DocumentUpload`)**: Drag-and-drop ingestion for prescriptions, lab results, and diagnostic reports (PDF, PNG, JPG).
 * **Zero-Shot Validation**: Powered by a FastAPI microservice to detect and filter out non-medical documents before processing.
 * **Hybrid OCR & AI Extraction**: Tesseract OCR extracts text, and the Google Gemini reasoning engine structures it into precise clinical schemas (diagnoses, medications, dosage, follow-up dates).
+* **Multilingual AI Explanation (`/api/documents/explain`)**: Translates and simplifies complex medical jargon into user-friendly explanations in English, Hindi, Telugu, Tamil, Kannada, Bengali, and Spanish.
 * **Intelligent AI Triage & Guardrails**: Real-time symptom analysis advising on recommended specialty and urgency levels with safety disclaimers.
 
-### 4. Doctor Portal, Data Isolation & Referral System
+### 👨‍⚕️ 5. Doctor Portal, Data Isolation & Referral System
 * **Strict Patient Data Isolation**: Doctor directories (`/api/doctor/patients`) strictly display patients who have booked appointments with the logged-in doctor or have been formally referred to them.
 * **Doctor-to-Doctor Patient Referrals (`ReferralModel` & `/api/doctor/refer`)**: Physicians can transfer patient access and clinical handover notes to verified specialists within the portal.
 * **Digital Checkup Completion & Signature**: Doctors record clinical notes, attach test result summaries, and sign checkups with a verified digital signature.
 * **Real-Time Patient Sync**: Checkup notes, test summaries, and doctor signatures instantly update the patient's dashboard.
 
-### 5. Admin Analytics & System Governance
+### 📊 6. Admin Analytics & System Governance
 * **Recharts Healthcare Analytics**: Dashboard tracking missed follow-up rates, compliance scores, treatment timelines, and department bottleneck bar charts.
 * **Partner Hospital Registry**: Overview of all collaborated hospitals, active doctor counts, and hospital admin accounts.
 * **Real-Time Registration Logs**: Comprehensive audit logs for verified doctors and registered patients.
 
 ---
 
-## 📁 Repository & Architecture Structure
+## 📁 Project Directory & Folder Architecture
 
 ```
 PD_SPACE/
-├── src/
-│   ├── app/                                → Next.js App Router Structure
+├── public/                                 → Static Web & PWA Assets
+│   ├── icons/                              → PWA application icons & badges
+│   ├── heal_link_hero.png                  → Platform visual banner
+│   ├── mediflow_hero.png                  → Hero branding graphic
+│   ├── manifest.json                       → Progressive Web App manifest
+│   ├── sample_prescription.pdf             → Sample medical document
+│   └── sw.js                               → Service Worker for offline capability
+├── src/                                    → Application Source Code
+│   ├── app/                                → Next.js 14 App Router
 │   │   ├── api/                            → Serverless API Routes
-│   │   │   ├── admin/
-│   │   │   │   ├── hospitals/route.ts      → Main Admin hospital application review & approval API
+│   │   │   ├── admin/                      → Main Admin endpoints
+│   │   │   │   ├── hospitals/route.ts      → Hospital application approval & credential generation
 │   │   │   │   ├── stats/route.ts          → Analytics calculation endpoint
-│   │   │   │   └── users/route.ts          → Doctor application approval/rejection & user log endpoint
+│   │   │   │   └── users/route.ts          → Doctor approval/rejection & user logs
 │   │   │   ├── alerts/route.ts             → Clinical safety alerts endpoint
-│   │   │   ├── appointments/route.ts       → Patient booking & checkup completion endpoint
-│   │   │   ├── auth/[...nextauth]/route.ts → NextAuth authentication handler
-│   │   │   ├── doctor/
-│   │   │   │   ├── apply/route.ts          → Dual-queue doctor verification & cooling period API
-│   │   │   │   ├── patients/route.ts       → Isolated assigned/referred patient list API
-│   │   │   │   ├── refer/route.ts          → Doctor-to-doctor patient referral creation & retrieval API
-│   │   │   │   ├── role/route.ts           → User role query API
-│   │   │   │   └── summary/route.ts        → Gemini AI patient summary generator API
-│   │   │   ├── doctors/route.ts            → Filtered list of verified, approved doctors API
-│   │   │   ├── documents/                  → File upload, GridFS & retrieval endpoints
+│   │   │   ├── appointments/route.ts       → Appointment booking & checkup completion
+│   │   │   ├── auth/                       → NextAuth Authentication
+│   │   │   │   └── [...nextauth]/route.ts  → NextAuth route handler
+│   │   │   ├── doctor/                     → Doctor Portal endpoints
+│   │   │   │   ├── apply/route.ts          → Verification application & 7-day cooling gate
+│   │   │   │   ├── patients/route.ts       → Data-isolated patient directory
+│   │   │   │   ├── refer/route.ts          → Doctor-to-doctor patient referral system
+│   │   │   │   ├── role/route.ts           → User role verification
+│   │   │   │   └── summary/route.ts        → Gemini AI patient summary generator
+│   │   │   ├── doctors/route.ts            → Directory of verified doctors
+│   │   │   ├── documents/                  → Medical Document Processing
+│   │   │   │   ├── confirm/route.ts        → Ingestion confirmation endpoint
+│   │   │   │   ├── download/route.ts       → GridFS document downloader
+│   │   │   │   ├── explain/route.ts        → Multilingual AI document simplifier
+│   │   │   │   ├── upload/route.ts         → File upload & GridFS storage
+│   │   │   │   └── route.ts                → Document listing endpoint
 │   │   │   ├── extract/route.ts            → AI document parsing endpoint
-│   │   │   ├── facilities/route.ts         → Nearby hospital & clinic location locator
-│   │   │   ├── health/route.ts             → Healthcheck ping endpoint
-│   │   │   ├── hospadmin/
-│   │   │   │   ├── doctors/route.ts        → Hospital Admin doctor approval/rejection API
-│   │   │   │   └── stats/route.ts          → Hospital-specific staff & consultation stats API
-│   │   │   ├── hospital/
-│   │   │   │   ├── apply/route.ts          → Public hospital partnership application submission API
-│   │   │   │   └── password/route.ts       → Hospital Admin password update API
-│   │   │   ├── hospitals/
-│   │   │   │   └── list/route.ts           → Approved partner hospitals directory API
+│   │   │   ├── facilities/route.ts         → Nearby hospital locator API
+│   │   │   ├── health/route.ts             → System healthcheck ping
+│   │   │   ├── hospadmin/                  → Hospital Admin endpoints
+│   │   │   │   ├── doctors/route.ts        → Staff doctor approval queue
+│   │   │   │   └── stats/route.ts          → Hospital clinical analytics
+│   │   │   ├── hospital/                   → Hospital Partnership endpoints
+│   │   │   │   ├── apply/route.ts          → Public hospital collaboration application
+│   │   │   │   └── password/route.ts       → Hospital Admin credential update endpoint
+│   │   │   ├── hospitals/                  → Directory endpoints
+│   │   │   │   └── list/route.ts           → Approved partner hospitals directory
 │   │   │   ├── ocr/route.ts                → Tesseract OCR text extraction endpoint
-│   │   │   ├── patient/
-│   │   │   │   └── profile/route.ts        → Compulsory patient EMR profile save & fetch API
-│   │   │   └── recommend/route.ts          → AI symptom triage & specialty checker endpoint
-│   │   ├── auth/                           → Sign-in & Sign-up views
+│   │   │   ├── patient/                    → Patient Portal endpoints
+│   │   │   │   └── profile/route.ts        → Compulsory EMR profile fetch & update
+│   │   │   ├── recommend/route.ts          → AI symptom triage & specialty advisor
+│   │   │   └── test-db-connection/route.ts → Database connection diagnostic endpoint
+│   │   ├── auth/                           → Authentication Views
 │   │   │   ├── login/page.tsx              → Credentials & Google login page
 │   │   │   └── register/page.tsx           → User registration page
 │   │   ├── dashboard/                      → Role Dashboards
-│   │   │   ├── admin/page.tsx              → Main Admin analytics, hospital collaboration management & doctor queue
-│   │   │   ├── doctor/page.tsx             → Doctor Portal (Verification Form, Hospital Selection & Data Isolation)
-│   │   │   └── patient/page.tsx            → Patient Portal (EMR Gate, Uploads, Triage & Reminders)
-│   │   ├── hospadmin/
-│   │   │   └── page.tsx                    → Hospital Admin Portal (Staff Approvals & Hospital Analytics)
-│   │   ├── globals.css                     → Design system & custom CSS variables
-│   │   ├── layout.tsx                      → Root application layout & NextAuth Provider wrapper
-│   │   └── page.tsx                        → Main Landing Page (`mediflow.shanmukhmedisetty.site`)
+│   │   │   ├── admin/page.tsx              → Main Admin portal
+│   │   │   ├── doctor/page.tsx             → Doctor portal & verification form
+│   │   │   └── patient/                    → Patient portal
+│   │   │       ├── upload/page.tsx         → Medical document upload flow
+│   │   │       └── page.tsx                → Patient dashboard & EMR gate
+│   │   ├── hospadmin/                      → Hospital Admin Portal
+│   │   │   └── page.tsx                    → Dedicated Hospital Admin dashboard
+│   │   ├── globals.css                     → Design system & styling
+│   │   ├── layout.tsx                      → Root layout & NextAuth SessionProvider wrapper
+│   │   └── page.tsx                        → Public Landing Page (`mediflow.shanmukhmedisetty.site`)
 │   ├── components/                         → Reusable UI Components
 │   │   ├── ConfirmExtraction.tsx           → Extraction verification modal
-│   │   ├── DocumentDetailModal.tsx         → Medical document viewer
+│   │   ├── DocumentDetailModal.tsx         → Medical document viewer & AI explanation
 │   │   ├── DocumentList.tsx                → Uploaded medical records list
-│   │   ├── DocumentUpload.tsx              → Drag-and-drop document upload widget
-│   │   ├── EmrFormModal.tsx                → Compulsory Patient EMR registration modal
-│   │   ├── FacilityMap.tsx                 → Interactive clinic/hospital map component
+│   │   ├── DocumentUpload.tsx              → Drag-and-drop file uploader
+│   │   ├── EmrFormModal.tsx                → Compulsory Patient EMR profile modal
+│   │   ├── FacilityMap.tsx                 → Interactive hospital locator map
 │   │   ├── OCRPreview.tsx                  → Raw OCR text preview widget
 │   │   ├── PatientEmrGate.tsx              → EMR completion enforcement gate
 │   │   └── Providers.tsx                   → NextAuth SessionProvider wrapper
-│   ├── lib/                                → Application Services & Core Libraries
-│   │   ├── alertEngine.ts                  → Drug conflict & missed follow-up logic
-│   │   ├── auth.ts                         → NextAuth options & credential providers (Hospital Admin support)
+│   ├── lib/                                → Core Utilities & Services
+│   │   ├── alertEngine.ts                  → Drug conflict & missed follow-up alerts
+│   │   ├── auth.ts                         → NextAuth options & bcrypt password authentication
 │   │   ├── cron.ts                         → Automated clinical alert scheduler
-│   │   ├── db.ts                           → MongoDB Mongoose connection utility
-│   │   ├── firebase.ts                     → Firebase OAuth helper
+│   │   ├── db.ts                           → MongoDB connection utility
+│   │   ├── firebase.ts                     → Firebase helper
 │   │   └── validation.ts                   → Input sanitization & schemas
 │   ├── middleware.ts                       → Dynamic Subdomain Routing & Isolation Matrix
 │   ├── models/                             → Mongoose Database Schemas
-│   │   ├── alert.ts                        → Clinical alert model
-│   │   ├── appointment.ts                  → Patient booking & doctor sign-off schema
+│   │   ├── alert.ts                        → Clinical alert schema
+│   │   ├── appointment.ts                  → Patient booking & checkup sign-off schema
 │   │   ├── document.ts                     → Medical document metadata schema
-│   │   ├── hospital.ts                     → Hospital collaboration model
-│   │   ├── referral.ts                     → Doctor-to-doctor patient referral schema
-│   │   └── user.ts                         → User model with EMR profile, Doctor profile & Hospital Admin credentials
+│   │   ├── hospital.ts                     → Hospital collaboration schema
+│   │   ├── referral.ts                     → Doctor-to-doctor referral schema
+│   │   └── user.ts                         → User, EMR & Doctor profile schema
 │   ├── types/                              → TypeScript Type Definitions
-│   │   ├── documents.ts                    → User, EMR Profile, Doctor Profile, Hospital & Document interfaces
+│   │   ├── documents.ts                    → User, EMR, Doctor, Hospital & Document types
 │   │   └── index.ts                        → Shared type exports
-│   └── utils/                              → Utility Helper Functions
+│   └── utils/                              → Helper Functions
 │       └── ocr.ts                          → Tesseract OCR helper utilities
-├── secrets.env                             → Environment secrets configuration
-└── package.json                            → Dependencies & script definitions
+├── .gitignore                              → Git ignore rules
+├── next.config.js                          → Next.js configuration
+├── package.json                            → Dependencies & script definitions
+├── README.md                               → Project documentation
+├── REPORT.md                               → Detailed project technical report
+├── SECURITY.md                             → Security policies & password guidelines
+└── secrets.env                             → Environment secrets configuration
 ```
 
 ---
 
-## 🔌 Tech Stack
+## 🔌 Technology Stack
 
-* **Frontend Framework**: Next.js 14 (App Router) + React 18 + TypeScript + Tailwind CSS / Vanilla CSS
+* **Frontend Framework**: Next.js 14 (App Router) + React 18 + TypeScript + Tailwind CSS / Custom CSS
 * **Backend Architecture**: Next.js Serverless API Routes + FastAPI Microservice (Zero-Shot Medical Classification)
-* **Database & Storage**: MongoDB + Mongoose Schemas + GridFS (for PDF/image file storage)
+* **Database & Storage**: MongoDB + Mongoose Schemas + GridFS (PDF & image storage)
+* **Password Security**: Bcryptjs (10-round salted password hashing & verification)
 * **AI & Reasoning**: Google Gemini API (`gemini-1.5-flash` / Gemini 3.5 series)
-* **OCR Engine**: Tesseract.js (Multi-format image & document OCR processing)
+* **OCR Engine**: Tesseract.js (Client & server OCR text extraction)
 * **Analytics & Visualizations**: Recharts (Healthcare analytics visuals)
-* **Authentication**: NextAuth.js (Google OAuth, Credentials Auth, Hospital Admin Credentials)
-* **Domain Routing**: Custom Next.js Subdomain Isolation Middleware
+* **Authentication**: NextAuth.js (Google OAuth, Bcrypt Credentials Auth, Hospital Admin Credentials)
+* **Subdomain Isolation**: Custom Next.js Domain Middleware
 
 ---
 
