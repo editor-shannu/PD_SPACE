@@ -42,28 +42,38 @@ export async function GET(req: NextRequest) {
 
     // Sort by role (admins first, then doctors, then patients) and name
     const users = await UserModel.find(query)
-      .select('name email role isEmrCompleted emrProfile doctorApplicationStatus doctorProfile doctorRejectedAt doctorRejectionReason createdAt updatedAt')
+      .select('name email role isEmrCompleted emrProfile doctorApplicationStatus doctorProfile doctorRejectedAt doctorRejectionReason createdAt updatedAt hospitalId hospitalName')
       .sort({ createdAt: -1 })
       .lean();
 
-    const formattedUsers = users.map((u: any) => ({
-      id: u._id.toString(),
-      name: u.name,
-      email: u.email,
-      role: u.role || 'patient',
-      isEmrCompleted: !!u.isEmrCompleted,
-      emrProfile: u.emrProfile,
-      doctorApplicationStatus: u.doctorApplicationStatus || 'none',
-      doctorProfile: u.doctorProfile ? {
-        ...u.doctorProfile,
-        doctorJoinType: u.doctorProfile.doctorJoinType || (u.doctorProfile.hospitalId ? 'hospital' : 'individual'),
-        hospitalId: u.doctorProfile.hospitalId || '',
-        hospitalName: u.doctorProfile.hospitalName || u.doctorProfile.hospitalAffiliation || '',
-      } : null,
-      doctorRejectedAt: u.doctorRejectedAt || null,
-      doctorRejectionReason: u.doctorRejectionReason || '',
-      createdAt: u.createdAt || u.updatedAt || new Date().toISOString(),
-    }));
+    const formattedUsers = users.map((u: any) => {
+      const dp = u.doctorProfile || {};
+      const docJoinType = dp.doctorJoinType || (u.hospitalId || dp.hospitalId ? 'hospital' : 'individual');
+      const hospId = u.hospitalId || dp.hospitalId || '';
+      const hospName = u.hospitalName || dp.hospitalName || dp.hospitalAffiliation || '';
+
+      return {
+        id: u._id.toString(),
+        name: u.name,
+        email: u.email,
+        role: u.role || 'patient',
+        isEmrCompleted: !!u.isEmrCompleted,
+        emrProfile: u.emrProfile,
+        hospitalId: hospId,
+        hospitalName: hospName,
+        doctorJoinType: docJoinType,
+        doctorApplicationStatus: u.doctorApplicationStatus || 'none',
+        doctorProfile: dp ? {
+          ...dp,
+          doctorJoinType: docJoinType,
+          hospitalId: hospId,
+          hospitalName: hospName,
+        } : null,
+        doctorRejectedAt: u.doctorRejectedAt || null,
+        doctorRejectionReason: u.doctorRejectionReason || '',
+        createdAt: u.createdAt || u.updatedAt || new Date().toISOString(),
+      };
+    });
 
     return NextResponse.json({ success: true, users: formattedUsers });
   } catch (error: any) {

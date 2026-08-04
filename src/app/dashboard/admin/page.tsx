@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
   Cell,
   PieChart,
-  Pie
+  Pie,
 } from 'recharts';
 
 interface StatData {
@@ -26,12 +26,15 @@ interface StatData {
   totalDocuments: number;
   totalAppointments: number;
 }
+
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const [stats, setStats] = useState<StatData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSeeding, setIsSeeding] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Users State
   const [users, setUsers] = useState<any[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersSearch, setUsersSearch] = useState('');
@@ -44,6 +47,10 @@ export default function AdminDashboard() {
   const [hospitalsError, setHospitalsError] = useState('');
   const [updatingHospId, setUpdatingHospId] = useState<string | null>(null);
   const [approvedCredentials, setApprovedCredentials] = useState<any | null>(null);
+
+  // Layout & Modal State
+  const [activeTab, setActiveTab] = useState<'all' | 'analytics' | 'hospitals' | 'doctors' | 'patients'>('all');
+  const [selectedHospitalDetails, setSelectedHospitalDetails] = useState<any | null>(null);
 
   const fetchStats = async (seed = false) => {
     try {
@@ -282,29 +289,41 @@ export default function AdminDashboard() {
     geminiInsight: 'No insight available.',
     totalPatients: 0,
     totalDocuments: 0,
-    totalAppointments: 0
+    totalAppointments: 0,
   };
 
   // Pie chart data for compliance
   const compliancePieData = [
     { name: 'On-Time', value: finalStats.patientComplianceScore },
-    { name: 'Late / Missed', value: 100 - finalStats.patientComplianceScore }
+    { name: 'Late / Missed', value: 100 - finalStats.patientComplianceScore },
   ];
 
+  const pendingHospitalsCount = hospitals.filter((h) => h.status === 'pending').length;
+  const pendingDoctorsCount = users.filter((u) => u.doctorApplicationStatus === 'pending').length;
+  const doctorsList = users.filter((u) => u.role === 'doctor' || u.role === 'admin');
+  const patientsList = users.filter((u) => u.role === 'patient');
+
   return (
-    <div className="space-y-8 max-w-5xl mx-auto pb-20 md:pb-8">
+    <div className="space-y-6 max-w-6xl mx-auto pb-20 md:pb-8">
       {/* Welcome Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-sm">
         <div>
-          <p className="text-gray-400 text-xs font-semibold mb-0.5">ADMINISTRATIVE PORTAL</p>
-          <h1 className="text-2xl font-black text-[#003893] tracking-tight">Clinical Operations Dashboard</h1>
-          <p className="text-gray-400 text-sm mt-0.5">Real-time patient compliance, bottlenecks, and timeline analytics.</p>
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 border border-indigo-200">
+              Primary System Admin
+            </span>
+            <span className="text-[10px] text-gray-400 font-bold">HealLink Operations</span>
+          </div>
+          <h1 className="text-2xl font-black text-[#003893] tracking-tight mt-1">Clinical Operations Dashboard</h1>
+          <p className="text-gray-500 text-xs font-medium mt-0.5">
+            Manage partner healthcare centers, verified medical practitioners, and patient directory.
+          </p>
         </div>
 
         <button
           onClick={handleSeedData}
           disabled={isSeeding || isLoading}
-          className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-[#2ab8d8] to-[#003893] hover:from-[#1fb1d1] hover:to-[#082f73] text-white rounded-xl text-xs font-bold transition shadow disabled:opacity-50"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#2ab8d8] to-[#003893] hover:from-[#1fb1d1] hover:to-[#082f73] text-white rounded-2xl text-xs font-bold transition shadow disabled:opacity-50"
         >
           {isSeeding ? (
             <>
@@ -319,245 +338,235 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      {/* KPI Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Clean Tab Navigation Bar */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-white/80 backdrop-blur-md rounded-2xl border border-gray-200 shadow-sm">
         {[
-          {
-            label: 'Missed Follow-up Rate',
-            value: `${finalStats.missedFollowupRate.toFixed(1)}%`,
-            sub: 'Of total past checkups',
-            color: '#ef4444',
-            icon: (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            ),
-          },
-          {
-            label: 'Follow-up Compliance',
-            value: `${finalStats.patientComplianceScore.toFixed(1)}%`,
-            sub: 'Completed on-time',
-            color: '#10b981',
-            icon: (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            ),
-          },
-          {
-            label: 'Avg Treatment Timeline',
-            value: `${finalStats.averageTreatmentTimeline.toFixed(1)} Days`,
-            sub: 'Diagnosis to resolution',
-            color: '#6366f1',
-            icon: (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            ),
-          },
-          {
-            label: 'Hospital Performance',
-            value: `${finalStats.totalPatients} Patients`,
-            sub: `${finalStats.totalAppointments} Appts · ${finalStats.totalDocuments} Files`,
-            color: '#f59e0b',
-            icon: (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            ),
-          },
-        ].map((stat, i) => (
-          <div
-            key={i}
-            className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-5 flex flex-col gap-3 shadow-sm hover:shadow-md transition-all duration-200"
+          { id: 'all', label: '🌐 All Overview', count: null },
+          { id: 'analytics', label: '📊 Clinical Analytics', count: null },
+          { id: 'hospitals', label: '🏥 Partner Hospitals', count: pendingHospitalsCount ? `${pendingHospitalsCount} Pending` : null, highlight: pendingHospitalsCount > 0 },
+          { id: 'doctors', label: '🩺 Doctor Registry', count: pendingDoctorsCount ? `${pendingDoctorsCount} Pending` : `${doctorsList.length} Active`, highlight: pendingDoctorsCount > 0 },
+          { id: 'patients', label: '👥 Patient Directory', count: `${patientsList.length} Users` },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+              activeTab === tab.id
+                ? 'bg-[#003893] text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
+            }`}
           >
-            <div className="flex items-center justify-between">
-              <div
-                className="w-8.5 h-8.5 rounded-xl flex items-center justify-center"
-                style={{ background: `${stat.color}15` }}
+            <span>{tab.label}</span>
+            {tab.count && (
+              <span
+                className={`text-[9px] px-2 py-0.5 rounded-full font-black ${
+                  activeTab === tab.id
+                    ? 'bg-white/20 text-white'
+                    : tab.highlight
+                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                    : 'bg-gray-100 text-gray-700'
+                }`}
               >
-                <svg className="h-4.5 w-4.5" style={{ color: stat.color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {stat.icon}
-                </svg>
-              </div>
-              <span className="text-lg font-black text-[#003893] tracking-tight">{stat.value}</span>
-            </div>
-            <div>
-              <p className="text-[#003893] text-xs font-bold leading-tight">{stat.label}</p>
-              <p className="text-gray-400 text-[10px] mt-0.5 leading-none">{stat.sub}</p>
-            </div>
-          </div>
+                {tab.count}
+              </span>
+            )}
+          </button>
         ))}
       </div>
 
-      {/* Gemini AI Performance Insight Card */}
-      {finalStats.geminiInsight && (
-        <div className="bg-gradient-to-r from-white/70 to-indigo-50/50 backdrop-blur-xl border border-white/90 rounded-3xl p-5 shadow-sm space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🤖</span>
-            <div>
-              <h3 className="text-xs font-bold text-[#003893] uppercase tracking-widest leading-none">Clinical Operations Insight</h3>
-              <p className="text-[9px] text-gray-400 font-semibold leading-none mt-0.5">Auto-generated performance analysis by Gemini</p>
+      {/* SECTION 1: STATS & ANALYTICS */}
+      {(activeTab === 'all' || activeTab === 'analytics') && (
+        <div className="space-y-6">
+          {/* KPI Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              {
+                label: 'Missed Follow-up Rate',
+                value: `${finalStats.missedFollowupRate.toFixed(1)}%`,
+                sub: 'Of total past checkups',
+                color: '#ef4444',
+                icon: (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                ),
+              },
+              {
+                label: 'Follow-up Compliance',
+                value: `${finalStats.patientComplianceScore.toFixed(1)}%`,
+                sub: 'Completed on-time',
+                color: '#10b981',
+                icon: (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                ),
+              },
+              {
+                label: 'Avg Treatment Timeline',
+                value: `${finalStats.averageTreatmentTimeline.toFixed(1)} Days`,
+                sub: 'Diagnosis to resolution',
+                color: '#6366f1',
+                icon: (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                ),
+              },
+              {
+                label: 'Hospital Performance',
+                value: `${finalStats.totalPatients} Patients`,
+                sub: `${finalStats.totalAppointments} Appts · ${finalStats.totalDocuments} Files`,
+                color: '#f59e0b',
+                icon: (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                ),
+              },
+            ].map((stat, i) => (
+              <div
+                key={i}
+                className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-5 flex flex-col gap-3 shadow-sm hover:shadow-md transition-all duration-200"
+              >
+                <div className="flex items-center justify-between">
+                  <div
+                    className="w-8.5 h-8.5 rounded-xl flex items-center justify-center"
+                    style={{ background: `${stat.color}15` }}
+                  >
+                    <svg className="h-4.5 w-4.5" style={{ color: stat.color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {stat.icon}
+                    </svg>
+                  </div>
+                  <span className="text-lg font-black text-[#003893] tracking-tight">{stat.value}</span>
+                </div>
+                <div>
+                  <p className="text-[#003893] text-xs font-bold leading-tight">{stat.label}</p>
+                  <p className="text-gray-400 text-[10px] mt-0.5 leading-none">{stat.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Gemini AI Performance Insight Card */}
+          {finalStats.geminiInsight && (
+            <div className="bg-gradient-to-r from-white/70 to-indigo-50/50 backdrop-blur-xl border border-white/90 rounded-3xl p-5 shadow-sm space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🤖</span>
+                <div>
+                  <h3 className="text-xs font-bold text-[#003893] uppercase tracking-widest leading-none">Clinical Operations Insight</h3>
+                  <p className="text-[9px] text-gray-400 font-semibold leading-none mt-0.5">Auto-generated performance analysis by Gemini</p>
+                </div>
+              </div>
+              <p className="text-xs text-[#003893]/90 leading-relaxed font-semibold">
+                {finalStats.geminiInsight}
+              </p>
+            </div>
+          )}
+
+          {/* Charts Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Bar Chart */}
+            <div className="md:col-span-2 bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-xs font-bold text-[#003893] uppercase tracking-widest">Appointment Bottlenecks</h3>
+                  <p className="text-[10px] text-gray-400 font-semibold leading-none mt-0.5">Total volume of appointments per department</p>
+                </div>
+              </div>
+
+              <div className="h-64 w-full">
+                {finalStats.bottlenecks.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-gray-400 text-xs font-semibold">
+                    No appointment data available. Seed data to view.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={finalStats.bottlenecks} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                      <XAxis dataKey="department" tick={{ fill: '#003893', fontSize: 9, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: '#64748b', fontSize: 9 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                          borderRadius: '16px',
+                          border: '1px solid #e2e8f0',
+                          boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                        }}
+                        labelStyle={{ fontSize: '10px', fontWeight: 'bold', color: '#003893' }}
+                        itemStyle={{ fontSize: '10px', color: '#6366f1' }}
+                      />
+                      <Bar dataKey="appointments" radius={[8, 8, 0, 0]}>
+                        {finalStats.bottlenecks.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={index === 0 ? '#003893' : index % 2 === 0 ? '#2ab8d8' : '#6366f1'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            {/* Pie Chart */}
+            <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-5 shadow-sm flex flex-col">
+              <div>
+                <h3 className="text-xs font-bold text-[#003893] uppercase tracking-widest">Compliance Distribution</h3>
+                <p className="text-[10px] text-gray-400 font-semibold leading-none mt-0.5">Ratio of on-time to missed/late follow-ups</p>
+              </div>
+
+              <div className="h-44 w-full relative mt-4">
+                {finalStats.patientComplianceScore === 0 && finalStats.missedFollowupRate === 0 ? (
+                  <div className="h-full flex items-center justify-center text-gray-400 text-xs font-semibold">
+                    No past follow-up data.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={compliancePieData} cx="50%" cy="50%" innerRadius={50} outerRadius={68} paddingAngle={3} dataKey="value">
+                        <Cell fill="#10b981" />
+                        <Cell fill="#ef4444" />
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                          borderRadius: '16px',
+                          border: '1px solid #e2e8f0',
+                        }}
+                        itemStyle={{ fontSize: '10px' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+                <div className="absolute top-[49%] left-[50%] -translate-x-[50%] -translate-y-[50%] text-center">
+                  <span className="text-base font-black text-[#003893]">{finalStats.patientComplianceScore.toFixed(0)}%</span>
+                  <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wide">Compliant</p>
+                </div>
+              </div>
+
+              <div className="mt-auto space-y-1.5 pt-3 border-t border-gray-100">
+                <div className="flex items-center justify-between text-[10px] font-bold text-gray-500">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
+                    <span>On-time Follow-up</span>
+                  </div>
+                  <span className="text-[#003893]">{finalStats.patientComplianceScore.toFixed(1)}%</span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-bold text-gray-500">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" />
+                    <span>Missed / Late</span>
+                  </div>
+                  <span className="text-[#003893]">{(100 - finalStats.patientComplianceScore).toFixed(1)}%</span>
+                </div>
+              </div>
             </div>
           </div>
-          <p className="text-xs text-[#003893]/90 leading-relaxed font-semibold">
-            {finalStats.geminiInsight}
-          </p>
         </div>
       )}
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Left/Middle: Bar Chart of Bottlenecks (Department volume) */}
-        <div className="md:col-span-2 bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-xs font-bold text-[#003893] uppercase tracking-widest">Appointment Bottlenecks</h3>
-              <p className="text-[10px] text-gray-400 font-semibold leading-none mt-0.5">Total volume of appointments per department</p>
-            </div>
-          </div>
-
-          <div className="h-64 w-full">
-            {finalStats.bottlenecks.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-gray-400 text-xs font-semibold">
-                No appointment data available. Seed data to view.
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={finalStats.bottlenecks}
-                  margin={{ top: 10, right: 10, left: -20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis
-                    dataKey="department"
-                    tick={{ fill: '#003893', fontSize: 9, fontWeight: 700 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fill: '#64748b', fontSize: 9 }}
-                    axisLine={false}
-                    tickLine={false}
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                      borderRadius: '16px',
-                      border: '1px solid #e2e8f0',
-                      boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
-                    }}
-                    labelStyle={{ fontSize: '10px', fontWeight: 'bold', color: '#003893' }}
-                    itemStyle={{ fontSize: '10px', color: '#6366f1' }}
-                  />
-                  <Bar dataKey="appointments" radius={[8, 8, 0, 0]}>
-                    {finalStats.bottlenecks.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={index === 0 ? '#003893' : index % 2 === 0 ? '#2ab8d8' : '#6366f1'}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* Right: Pie Chart for Compliance */}
-        <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-5 shadow-sm flex flex-col">
-          <div>
-            <h3 className="text-xs font-bold text-[#003893] uppercase tracking-widest">Compliance Distribution</h3>
-            <p className="text-[10px] text-gray-400 font-semibold leading-none mt-0.5">Ratio of on-time to missed/late follow-ups</p>
-          </div>
-
-          <div className="h-44 w-full relative mt-4">
-            {finalStats.patientComplianceScore === 0 && finalStats.missedFollowupRate === 0 ? (
-              <div className="h-full flex items-center justify-center text-gray-400 text-xs font-semibold">
-                No past follow-up data.
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={compliancePieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={68}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    <Cell fill="#10b981" />
-                    <Cell fill="#ef4444" />
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                      borderRadius: '16px',
-                      border: '1px solid #e2e8f0',
-                    }}
-                    itemStyle={{ fontSize: '10px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-            <div className="absolute top-[49%] left-[50%] -translate-x-[50%] -translate-y-[50%] text-center">
-              <span className="text-base font-black text-[#003893]">
-                {finalStats.patientComplianceScore.toFixed(0)}%
-              </span>
-              <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wide">Compliant</p>
-            </div>
-          </div>
-
-          <div className="mt-auto space-y-1.5 pt-3 border-t border-gray-100">
-            <div className="flex items-center justify-between text-[10px] font-bold text-gray-500">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
-                <span>On-time Follow-up</span>
-              </div>
-              <span className="text-[#003893]">{finalStats.patientComplianceScore.toFixed(1)}%</span>
-            </div>
-            <div className="flex items-center justify-between text-[10px] font-bold text-gray-500">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" />
-                <span>Missed / Late</span>
-              </div>
-              <span className="text-[#003893]">{(100 - finalStats.patientComplianceScore).toFixed(1)}%</span>
-            </div>
-          </div>
-      </div>
-    </div>
-
-      {/* Registered Doctors & Patients Logs */}
-      <div className="space-y-6">
-        {/* Search Bar for All Registration Logs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-5 shadow-sm">
-          <div>
-            <h3 className="text-sm font-black text-[#003893] uppercase tracking-wider flex items-center gap-2">
-              <span>📜</span> Real-Time System Registration Logs
-            </h3>
-            <p className="text-xs text-gray-400 font-semibold mt-0.5">
-              Comprehensive registry of verified doctors and registered patients on the platform.
-            </p>
-          </div>
-
-          <div className="relative w-full sm:w-72">
-            <input
-              type="text"
-              placeholder="Filter logs by name or email..."
-              value={usersSearch}
-              onChange={(e) => {
-                setUsersSearch(e.target.value);
-                fetchUsers(e.target.value);
-              }}
-              className="w-full pl-9 pr-4 py-2 text-xs font-semibold bg-white/85 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#2ab8d8] text-gray-700 shadow-sm"
-            />
-            <span className="absolute left-3 top-2.5 text-gray-400 text-xs">🔍</span>
-          </div>
-        </div>
-
-        {/* HOSPITAL COLLABORATION APPLICATIONS & PARTNERS */}
+      {/* SECTION 2: HOSPITAL COLLABORATION APPLICATIONS & VERIFIED PARTNERS */}
+      {(activeTab === 'all' || activeTab === 'hospitals') && (
         <div className="bg-teal-50/70 backdrop-blur-xl border border-teal-200/80 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-xs font-black text-teal-900 uppercase tracking-widest flex items-center gap-2">
-                <span className="text-base">🏥</span> Hospital Collaborations &amp; Partner Management ({hospitals.length})
+                <span className="text-base">🏥</span> Hospital Collaborations &amp; Verified Medical Centers ({hospitals.length})
               </h3>
-              <p className="text-[11px] text-teal-700 font-semibold mt-0.5">Review partnership applications &amp; manage hospital admin credentials.</p>
+              <p className="text-[11px] text-teal-700 font-semibold mt-0.5">
+                Review hospital applications. Click any verified hospital to inspect complete operational details &amp; credentials.
+              </p>
             </div>
             <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-teal-200 text-teal-900 border border-teal-300 self-start sm:self-auto">
               Subdomain: medi-hospadmin.shanmukhmedisetty.site
@@ -565,9 +574,9 @@ export default function AdminDashboard() {
           </div>
 
           {approvedCredentials && (
-            <div className="p-4 bg-emerald-900 text-white rounded-2xl space-y-2 text-xs shadow-lg animate-fade-in border border-emerald-700">
+            <div className="p-4 bg-emerald-900 text-white rounded-2xl space-y-2 text-xs shadow-lg border border-emerald-700">
               <div className="flex items-center justify-between">
-                <span className="font-extrabold text-emerald-300 uppercase tracking-wider">🎉 Hospital Approved & Credentials Generated!</span>
+                <span className="font-extrabold text-emerald-300 uppercase tracking-wider">🎉 Hospital Approved &amp; Credentials Generated!</span>
                 <button onClick={() => setApprovedCredentials(null)} className="text-xs text-emerald-200 hover:text-white">✕ Close</button>
               </div>
               <div className="bg-slate-950/80 p-3 rounded-xl font-mono text-xs space-y-1 border border-emerald-800">
@@ -575,7 +584,7 @@ export default function AdminDashboard() {
                 <p>Hospital ID: <strong className="text-teal-300">{approvedCredentials.hospitalId}</strong></p>
                 <p>Generated Password: <strong className="text-amber-300 font-bold">{approvedCredentials.password}</strong></p>
               </div>
-              <p className="text-[10px] text-emerald-200">Share these login details with the hospital partner to access the Hospital Admin Dashboard.</p>
+              <p className="text-[10px] text-emerald-200">Share these login credentials with the medical center to log into the Hospital Portal.</p>
             </div>
           )}
 
@@ -588,234 +597,293 @@ export default function AdminDashboard() {
               No hospital collaboration applications received yet.
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {hospitals.map((hosp) => {
                 const isPending = hosp.status === 'pending';
                 const isApproved = hosp.status === 'approved';
                 const isUpdating = updatingHospId === hosp.hospitalId;
 
                 return (
-                  <div key={hosp.hospitalId} className="p-4 rounded-2xl bg-white border border-teal-150 shadow-sm space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-teal-100 pb-2.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-teal-600 text-white font-black flex items-center justify-center text-sm">
-                          🏥
+                  <div
+                    key={hosp.hospitalId}
+                    className="p-5 rounded-2xl bg-white border border-teal-150 shadow-sm hover:shadow-md transition cursor-pointer flex flex-col justify-between group space-y-3"
+                    onClick={() => setSelectedHospitalDetails(hosp)}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2 border-b border-teal-100 pb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-teal-600 text-white font-black flex items-center justify-center text-lg shadow-sm group-hover:scale-105 transition">
+                            🏥
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-black text-[#003893] group-hover:text-teal-700 transition">
+                                {hosp.name}
+                              </h4>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                                  isPending
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                    : isApproved
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                    : 'bg-red-100 text-red-800 border border-red-200'
+                                }`}
+                              >
+                                {hosp.status}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-gray-500 font-semibold mt-0.5">
+                              ID: <span className="font-mono text-teal-700 font-bold">{hosp.hospitalId}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedHospitalDetails(hosp);
+                          }}
+                          className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 text-[10px] font-bold rounded-xl border border-teal-200 transition"
+                        >
+                          🔍 View Details
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-gray-700 pt-3">
+                        <div>
+                          <span className="text-[9px] text-gray-400 font-bold uppercase block">Contact Email</span>
+                          <span className="text-gray-800 text-[11px] truncate block">{hosp.contactEmail}</span>
                         </div>
                         <div>
-                          <div className="flex items-center space-x-2">
-                            <h4 className="text-sm font-black text-[#003893]">{hosp.name}</h4>
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
-                              isPending ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                              isApproved ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
-                              'bg-red-100 text-red-800 border border-red-200'
-                            }`}>
-                              {hosp.status}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-gray-500 font-semibold">{hosp.address} | ID: <span className="font-mono text-teal-700 font-bold">{hosp.hospitalId}</span></p>
+                          <span className="text-[9px] text-gray-400 font-bold uppercase block">Phone / Beds</span>
+                          <span className="text-gray-800 text-[11px] block">{hosp.phone} ({hosp.bedCapacity} Beds)</span>
                         </div>
                       </div>
-
-                      <div className="text-right text-[11px] text-gray-500 font-semibold">
-                        <p>Doctors Enrolled: <strong className="text-teal-700">{hosp.doctorCount || 0}</strong></p>
-                        <p className="text-[10px] text-gray-400">Capacity: {hosp.bedCapacity}</p>
-                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-semibold text-gray-700 bg-teal-50/40 p-2.5 rounded-xl border border-teal-100">
-                      <div><span className="text-[9px] text-teal-800 font-bold uppercase block">Contact Email</span>{hosp.contactEmail}</div>
-                      <div><span className="text-[9px] text-teal-800 font-bold uppercase block">Phone</span>{hosp.phone}</div>
-                      <div><span className="text-[9px] text-teal-800 font-bold uppercase block">Specialties</span>{(hosp.specialties || []).join(', ') || 'General'}</div>
+                    <div className="pt-2 border-t border-teal-100 flex items-center justify-between text-xs">
+                      <span className="text-[10px] text-gray-500 font-bold">
+                        Enrolled Doctors: <strong className="text-teal-700">{hosp.doctorCount || 0}</strong>
+                      </span>
+
+                      {isPending ? (
+                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleHospitalAction(hosp.hospitalId, 'reject')}
+                            disabled={isUpdating}
+                            className="px-2.5 py-1 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 text-[10px] font-bold transition disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                          <button
+                            onClick={() => handleHospitalAction(hosp.hospitalId, 'approve')}
+                            disabled={isUpdating}
+                            className="px-3 py-1 rounded-lg bg-teal-600 text-white font-bold text-[10px] hover:bg-teal-700 shadow transition disabled:opacity-50"
+                          >
+                            Approve
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-teal-700 font-bold group-hover:underline">
+                          Inspect Full Details →
+                        </span>
+                      )}
                     </div>
-
-                    {hosp.reasonToJoin && (
-                      <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded-xl border border-gray-100">
-                        <strong className="text-gray-700">Collaboration Purpose:</strong> {hosp.reasonToJoin}
-                      </p>
-                    )}
-
-                    {isApproved && hosp.credentials && (
-                      <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-                        <span className="text-emerald-900">Admin Email: <strong>{hosp.credentials.hospitalAdminEmail}</strong></span>
-                        <span className="text-emerald-900">Temp Password: <strong className="text-amber-800 bg-amber-100 px-2 py-0.5 rounded">{hosp.credentials.rawTempPassword || '••••••••'}</strong></span>
-                      </div>
-                    )}
-
-                    {isPending && (
-                      <div className="flex items-center justify-end space-x-2 pt-1">
-                        <button
-                          onClick={() => handleHospitalAction(hosp.hospitalId, 'reject')}
-                          disabled={isUpdating}
-                          className="px-3.5 py-1.5 rounded-xl bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 text-xs font-extrabold transition disabled:opacity-50"
-                        >
-                          {isUpdating ? 'Updating...' : 'Reject Collaboration'}
-                        </button>
-                        <button
-                          onClick={() => handleHospitalAction(hosp.hospitalId, 'approve')}
-                          disabled={isUpdating}
-                          className="px-4 py-1.5 rounded-xl bg-teal-600 text-white font-extrabold text-xs hover:bg-teal-700 shadow transition disabled:opacity-50"
-                        >
-                          {isUpdating ? 'Approving...' : 'Approve & Generate Credentials'}
-                        </button>
-                      </div>
-                    )}
                   </div>
                 );
               })}
             </div>
           )}
         </div>
+      )}
 
-        {usersError && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-3 flex items-center gap-2 text-xs text-red-700 font-semibold">
-            <span>⚠️</span>
-            <span>{usersError}</span>
-          </div>
-        )}
-
-        {/* PENDING DOCTOR VERIFICATION APPLICATIONS */}
-        <div className="bg-amber-50/70 backdrop-blur-xl border border-amber-200/80 rounded-3xl p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-black text-amber-900 uppercase tracking-widest flex items-center gap-2">
-              <span className="text-base">⏳</span> Pending Doctor Verification Requests ({users.filter((u) => u.doctorApplicationStatus === 'pending').length})
-            </h3>
-            <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-amber-200 text-amber-900 border border-amber-300">
-              Admin Verification Queue
-            </span>
-          </div>
-
-          {users.filter((u) => u.doctorApplicationStatus === 'pending').length === 0 ? (
-            <div className="py-6 text-center text-xs text-amber-700/70 font-semibold bg-white/60 rounded-2xl border border-dashed border-amber-200">
-              ✅ No pending doctor verification requests at this time. All doctor accounts are up to date!
+      {/* SECTION 3: DOCTOR VERIFICATIONS & REGISTERED DOCTORS LOG */}
+      {(activeTab === 'all' || activeTab === 'doctors') && (
+        <div className="space-y-6">
+          {/* Search Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-5 shadow-sm">
+            <div>
+              <h3 className="text-sm font-black text-[#003893] uppercase tracking-wider flex items-center gap-2">
+                <span>🩺</span> Medical Practitioners &amp; Verification Registry
+              </h3>
+              <p className="text-xs text-gray-400 font-semibold mt-0.5">
+                Verify medical degrees, license numbers, and hospital affiliations of practicing doctors.
+              </p>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {users
-                .filter((u) => u.doctorApplicationStatus === 'pending')
-                .map((appUser) => {
-                  const dp = appUser.doctorProfile || {};
-                  const isUpdating = updatingUserId === appUser.id;
 
-                  return (
-                    <div
-                      key={appUser.id}
-                      className="p-5 rounded-2xl bg-white border border-amber-200 shadow-sm space-y-3"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-100 pb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white font-black flex items-center justify-center text-lg shadow-sm">
-                            👨‍⚕️
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-sm font-black text-[#003893]">
-                                {appUser.name}
-                              </h4>
-                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
-                                dp.doctorJoinType === 'hospital' || dp.hospitalId
-                                  ? 'bg-purple-100 text-purple-900 border border-purple-200'
-                                  : 'bg-sky-100 text-sky-900 border border-sky-200'
-                              }`}>
-                                {dp.doctorJoinType === 'hospital' || dp.hospitalId ? '🏥 Hospital Doctor' : '👤 Individual Doctor'}
-                              </span>
-                            </div>
-                            <p className="text-xs text-gray-500 font-semibold">{appUser.email}</p>
-                          </div>
-                        </div>
+            <div className="relative w-full sm:w-72">
+              <input
+                type="text"
+                placeholder="Search doctors by name or email..."
+                value={usersSearch}
+                onChange={(e) => {
+                  setUsersSearch(e.target.value);
+                  fetchUsers(e.target.value);
+                }}
+                className="w-full pl-9 pr-4 py-2 text-xs font-semibold bg-white/85 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#2ab8d8] text-gray-700 shadow-sm"
+              />
+              <span className="absolute left-3 top-2.5 text-gray-400 text-xs">🔍</span>
+            </div>
+          </div>
 
-                        <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-xl self-start sm:self-auto border border-amber-200">
-                          Submitted: {dp.appliedAt ? new Date(dp.appliedAt).toLocaleDateString() : 'Recently'}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs font-semibold text-gray-700">
-                        <div className="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100">
-                          <span className="text-[9px] font-extrabold text-amber-900 uppercase block">Department</span>
-                          <span className="font-extrabold text-[#003893]">{dp.department || 'Not specified'}</span>
-                        </div>
-
-                        <div className="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100">
-                          <span className="text-[9px] font-extrabold text-amber-900 uppercase block">Medical License #</span>
-                          <span className="font-mono font-bold text-gray-800">{dp.licenseNumber || 'N/A'}</span>
-                        </div>
-
-                        <div className="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100">
-                          <span className="text-[9px] font-extrabold text-amber-900 uppercase block">Hospital / Clinic</span>
-                          <span className="font-bold text-gray-800">{dp.hospitalAffiliation || 'N/A'}</span>
-                        </div>
-
-                        <div className="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100">
-                          <span className="text-[9px] font-extrabold text-amber-900 uppercase block">Contact Phone &amp; Exp</span>
-                          <span className="font-bold text-gray-800">{dp.phone || 'N/A'} ({dp.experienceYears || '1+'} yrs)</span>
-                        </div>
-                      </div>
-
-                      {dp.qualifications && (
-                        <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 text-xs text-gray-600">
-                          <span className="font-bold text-gray-700">Qualifications &amp; Degrees:</span> {dp.qualifications}
-                        </div>
-                      )}
-
-                      <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-amber-100">
-                        <button
-                          onClick={() => handleDoctorAction(appUser.id, 'reject')}
-                          disabled={isUpdating}
-                          className="px-4 py-2 rounded-xl bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-extrabold text-xs transition-all disabled:opacity-50"
-                        >
-                          {isUpdating ? 'Updating...' : '❌ Reject Application'}
-                        </button>
-                        <button
-                          onClick={() => handleDoctorAction(appUser.id, 'approve')}
-                          disabled={isUpdating}
-                          className="px-5 py-2 rounded-xl bg-[#003893] text-white font-extrabold text-xs hover:bg-[#002868] shadow-md transition-all disabled:opacity-50"
-                        >
-                          {isUpdating ? 'Updating...' : '✅ Approve & Grant Doctor Access'}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+          {usersError && (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-3 flex items-center gap-2 text-xs text-red-700 font-semibold">
+              <span>⚠️</span>
+              <span>{usersError}</span>
             </div>
           )}
-        </div>
 
-        {/* LOG 1: Registered Doctors Log */}
-        <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-black text-[#003893] uppercase tracking-widest flex items-center gap-2">
-              <span className="text-base">🩺</span> Registered Doctors Log ({users.filter((u) => u.role === 'doctor' || u.role === 'admin').length})
-            </h3>
-            <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-sky-100 text-sky-800 border border-sky-200">
-              Verified Medical Providers
-            </span>
+          {/* PENDING DOCTOR APPLICATIONS QUEUE */}
+          <div className="bg-amber-50/70 backdrop-blur-xl border border-amber-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-black text-amber-900 uppercase tracking-widest flex items-center gap-2">
+                <span className="text-base">⏳</span> Pending Doctor Verification Requests ({pendingDoctorsCount})
+              </h3>
+              <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-amber-200 text-amber-900 border border-amber-300">
+                Admin Verification Queue
+              </span>
+            </div>
+
+            {pendingDoctorsCount === 0 ? (
+              <div className="py-6 text-center text-xs text-amber-700/70 font-semibold bg-white/60 rounded-2xl border border-dashed border-amber-200">
+                ✅ No pending doctor verification requests at this time. All doctor accounts are up to date!
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {users
+                  .filter((u) => u.doctorApplicationStatus === 'pending')
+                  .map((appUser) => {
+                    const dp = appUser.doctorProfile || {};
+                    const isUpdating = updatingUserId === appUser.id;
+                    const isHospitalDoctor = dp.doctorJoinType === 'hospital' || appUser.hospitalId || dp.hospitalId;
+
+                    return (
+                      <div key={appUser.id} className="p-5 rounded-2xl bg-white border border-amber-200 shadow-sm space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-100 pb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white font-black flex items-center justify-center text-lg shadow-sm">
+                              👨‍⚕️
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-black text-[#003893]">{appUser.name}</h4>
+                                <span
+                                  className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
+                                    isHospitalDoctor
+                                      ? 'bg-purple-100 text-purple-900 border border-purple-200'
+                                      : 'bg-sky-100 text-sky-900 border border-sky-200'
+                                  }`}
+                                >
+                                  {isHospitalDoctor
+                                    ? `🏥 Hospital Partner: ${dp.hospitalAffiliation || appUser.hospitalName || 'Partner Center'}`
+                                    : '👤 Individual Practice'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 font-semibold">{appUser.email}</p>
+                            </div>
+                          </div>
+
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-xl self-start sm:self-auto border border-amber-200">
+                            Submitted: {dp.appliedAt ? new Date(dp.appliedAt).toLocaleDateString() : 'Recently'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs font-semibold text-gray-700">
+                          <div className="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100">
+                            <span className="text-[9px] font-extrabold text-amber-900 uppercase block">Department</span>
+                            <span className="font-extrabold text-[#003893]">{dp.department || 'General Medicine'}</span>
+                          </div>
+
+                          <div className="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100">
+                            <span className="text-[9px] font-extrabold text-amber-900 uppercase block">Medical License #</span>
+                            <span className="font-mono font-bold text-gray-800">{dp.licenseNumber || 'N/A'}</span>
+                          </div>
+
+                          <div className="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100">
+                            <span className="text-[9px] font-extrabold text-amber-900 uppercase block">Affiliation</span>
+                            <span className="font-bold text-gray-800">{dp.hospitalAffiliation || appUser.hospitalName || 'Independent Practice'}</span>
+                          </div>
+
+                          <div className="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100">
+                            <span className="text-[9px] font-extrabold text-amber-900 uppercase block">Contact Phone &amp; Exp</span>
+                            <span className="font-bold text-gray-800">{dp.phone || 'N/A'} ({dp.experienceYears || '1+'} yrs)</span>
+                          </div>
+                        </div>
+
+                        {dp.qualifications && (
+                          <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 text-xs text-gray-600">
+                            <span className="font-bold text-gray-700">Qualifications &amp; Degrees:</span> {dp.qualifications}
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-amber-100">
+                          <button
+                            onClick={() => handleDoctorAction(appUser.id, 'reject')}
+                            disabled={isUpdating}
+                            className="px-4 py-2 rounded-xl bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-extrabold text-xs transition-all disabled:opacity-50"
+                          >
+                            {isUpdating ? 'Updating...' : '❌ Reject Application'}
+                          </button>
+                          <button
+                            onClick={() => handleDoctorAction(appUser.id, 'approve')}
+                            disabled={isUpdating}
+                            className="px-5 py-2 rounded-xl bg-[#003893] text-white font-extrabold text-xs hover:bg-[#002868] shadow-md transition-all disabled:opacity-50"
+                          >
+                            {isUpdating ? 'Updating...' : '✅ Approve & Grant Doctor Access'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
           </div>
 
-          {usersLoading && users.length === 0 ? (
-            <div className="py-6 text-center text-xs text-gray-400 font-semibold animate-pulse">
-              Loading doctor registrations...
+          {/* REGISTERED DOCTORS LOG TABLE */}
+          <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-black text-[#003893] uppercase tracking-widest flex items-center gap-2">
+                  <span className="text-base">🩺</span> Registered Doctors Log ({doctorsList.length})
+                </h3>
+                <p className="text-[10px] text-gray-400 font-semibold mt-0.5">
+                  Displays practice type (Hospital Partner vs. Individual Practice) for verified practitioners.
+                </p>
+              </div>
+              <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-sky-100 text-sky-800 border border-sky-200">
+                Verified Medical Providers
+              </span>
             </div>
-          ) : users.filter((u) => u.role === 'doctor' || u.role === 'admin').length === 0 ? (
-            <div className="py-6 text-center text-xs text-gray-400 font-bold bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-              No registered doctors found.
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-2xl border border-gray-150 bg-white/70 shadow-inner">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-gray-150 bg-sky-50/70 text-[#003893] font-bold">
-                    <th className="p-3">Doctor Details</th>
-                    <th className="p-3">Email Address</th>
-                    <th className="p-3">Department / Access Role</th>
-                    <th className="p-3">Registered Date</th>
-                    <th className="p-3 text-right">Portal Permissions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-150/40 font-semibold text-gray-600">
-                  {users
-                    .filter((u) => u.role === 'doctor' || u.role === 'admin')
-                    .map((user) => {
+
+            {usersLoading && users.length === 0 ? (
+              <div className="py-6 text-center text-xs text-gray-400 font-semibold animate-pulse">
+                Loading doctor registrations...
+              </div>
+            ) : doctorsList.length === 0 ? (
+              <div className="py-6 text-center text-xs text-gray-400 font-bold bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                No registered doctors found.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-gray-150 bg-white/70 shadow-inner">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-150 bg-sky-50/70 text-[#003893] font-bold">
+                      <th className="p-3">Doctor Details</th>
+                      <th className="p-3">Affiliation Type &amp; Medical Center</th>
+                      <th className="p-3">Email Address</th>
+                      <th className="p-3">Department / Access Role</th>
+                      <th className="p-3">Registered Date</th>
+                      <th className="p-3 text-right">Portal Permissions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-150/40 font-semibold text-gray-600">
+                    {doctorsList.map((user) => {
                       const isPrimaryAdmin = user.email.toLowerCase().trim() === 'heallink.care@gmail.com';
                       const formattedDate = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Active User';
+                      const dp = user.doctorProfile || {};
+                      
+                      const isHospDoc = user.doctorJoinType === 'hospital' || !!user.hospitalId || !!dp.hospitalId || (user.hospitalName && user.hospitalName !== 'Individual Practice');
+                      const hospName = user.hospitalName || dp.hospitalName || dp.hospitalAffiliation || '';
 
                       return (
                         <tr key={user.id} className="hover:bg-sky-50/30 transition">
@@ -834,13 +902,34 @@ export default function AdminDashboard() {
                               )}
                             </div>
                           </td>
-                          <td className="p-3 font-semibold text-gray-500">{user.email}</td>
+
+                          {/* Explicit Practice Affiliation Column */}
                           <td className="p-3">
-                            <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-sky-100 text-sky-800 border border-sky-200">
-                              {user.emrProfile?.department || (user.role === 'admin' ? 'System Administrator' : 'General Medicine')}
+                            {isPrimaryAdmin ? (
+                              <span className="px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase bg-indigo-100 text-indigo-900 border border-indigo-200 inline-flex items-center gap-1">
+                                <span>⚙️</span> System Administrator
+                              </span>
+                            ) : isHospDoc ? (
+                              <span className="px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase bg-purple-100 text-purple-900 border border-purple-200 inline-flex items-center gap-1">
+                                <span>🏥</span> Hospital Partner: <strong className="underline">{hospName || 'Collaborated Center'}</strong>
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-full text-[9.5px] font-black uppercase bg-sky-100 text-sky-900 border border-sky-200 inline-flex items-center gap-1">
+                                <span>👤</span> Individual Practice
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="p-3 font-semibold text-gray-500">{user.email}</td>
+
+                          <td className="p-3">
+                            <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-gray-100 text-gray-800 border border-gray-200">
+                              {dp.department || user.emrProfile?.department || (user.role === 'admin' ? 'System Administrator' : 'General Medicine')}
                             </span>
                           </td>
+
                           <td className="p-3 text-gray-500 font-mono text-[11px]">{formattedDate}</td>
+
                           <td className="p-3 text-right">
                             {isPrimaryAdmin ? (
                               <span className="text-[10px] text-gray-400 font-semibold italic">System Admin</span>
@@ -850,24 +939,27 @@ export default function AdminDashboard() {
                                 disabled={updatingUserId === user.id}
                                 className="px-3 py-1.5 rounded-xl text-[10px] font-black bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition shadow-sm disabled:opacity-50"
                               >
-                                Revoke Doctor Portal Access
+                                Revoke Doctor Access
                               </button>
                             )}
                           </td>
                         </tr>
                       );
                     })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
+      )}
 
-        {/* LOG 2: Registered Patients Log */}
+      {/* SECTION 4: PATIENT DIRECTORY */}
+      {(activeTab === 'all' || activeTab === 'patients') && (
         <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-black text-[#003893] uppercase tracking-widest flex items-center gap-2">
-              <span className="text-base">👥</span> Registered Patients Log ({users.filter((u) => u.role === 'patient').length})
+              <span className="text-base">👥</span> Registered Patients Log ({patientsList.length})
             </h3>
             <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
               Registered Patient Directory
@@ -878,7 +970,7 @@ export default function AdminDashboard() {
             <div className="py-6 text-center text-xs text-gray-400 font-semibold animate-pulse">
               Loading patient registrations...
             </div>
-          ) : users.filter((u) => u.role === 'patient').length === 0 ? (
+          ) : patientsList.length === 0 ? (
             <div className="py-6 text-center text-xs text-gray-400 font-bold bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
               No registered patients found.
             </div>
@@ -895,53 +987,230 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-150/40 font-semibold text-gray-600">
-                  {users
-                    .filter((u) => u.role === 'patient')
-                    .map((user) => {
-                      const formattedDate = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Active User';
-                      const isEmrDone = user.isEmrCompleted;
+                  {patientsList.map((user) => {
+                    const formattedDate = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Active User';
+                    const isEmrDone = user.isEmrCompleted;
 
-                      return (
-                        <tr key={user.id} className="hover:bg-emerald-50/30 transition">
-                          <td className="p-3 flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 font-black flex items-center justify-center text-xs shadow-sm">
-                              {user.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-extrabold text-gray-800 leading-tight">{user.name}</p>
-                            </div>
-                          </td>
-                          <td className="p-3 font-semibold text-gray-500">{user.email}</td>
-                          <td className="p-3">
-                            <span
-                              className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                                isEmrDone
-                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                  : 'bg-amber-100 text-amber-800 border border-amber-200'
-                              }`}
-                            >
-                              {isEmrDone ? '✅ EMR Completed' : '⚠️ Pending EMR Form'}
-                            </span>
-                          </td>
-                          <td className="p-3 text-gray-500 font-mono text-[11px]">{formattedDate}</td>
-                          <td className="p-3 text-right">
-                            <button
-                              onClick={() => handleToggleUserRole(user.id, user.role)}
-                              disabled={updatingUserId === user.id}
-                              className="px-3 py-1.5 rounded-xl text-[10px] font-black bg-[#2ab8d8]/10 hover:bg-[#2ab8d8]/20 text-[#2ab8d8] border border-[#2ab8d8]/30 transition shadow-sm disabled:opacity-50"
-                            >
-                              Grant Doctor Portal Access
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    return (
+                      <tr key={user.id} className="hover:bg-emerald-50/30 transition">
+                        <td className="p-3 flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 font-black flex items-center justify-center text-xs shadow-sm">
+                            {user.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-extrabold text-gray-800 leading-tight">{user.name}</p>
+                          </div>
+                        </td>
+                        <td className="p-3 font-semibold text-gray-500">{user.email}</td>
+                        <td className="p-3">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                              isEmrDone
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                : 'bg-amber-100 text-amber-800 border border-amber-200'
+                            }`}
+                          >
+                            {isEmrDone ? '✅ EMR Completed' : '⚠️ Pending EMR Form'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-gray-500 font-mono text-[11px]">{formattedDate}</td>
+                        <td className="p-3 text-right">
+                          <button
+                            onClick={() => handleToggleUserRole(user.id, user.role)}
+                            disabled={updatingUserId === user.id}
+                            className="px-3 py-1.5 rounded-xl text-[10px] font-black bg-[#2ab8d8]/10 hover:bg-[#2ab8d8]/20 text-[#2ab8d8] border border-[#2ab8d8]/30 transition shadow-sm disabled:opacity-50"
+                          >
+                            Grant Doctor Access
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </div>
-      </div>
+      )}
+
+      {/* FULL HOSPITAL DETAILS MODAL */}
+      {selectedHospitalDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 space-y-5 shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-gray-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white font-black flex items-center justify-center text-xl shadow-md">
+                  🏥
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-black text-[#003893]">{selectedHospitalDetails.name}</h3>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                        selectedHospitalDetails.status === 'approved'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : selectedHospitalDetails.status === 'pending'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                          : 'bg-red-100 text-red-800 border border-red-200'
+                      }`}
+                    >
+                      {selectedHospitalDetails.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 font-semibold mt-0.5">
+                    Hospital Unique ID: <span className="font-mono text-teal-700 font-bold">{selectedHospitalDetails.hospitalId}</span>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedHospitalDetails(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold text-sm flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Generated Hospital Admin Credentials Card */}
+            {selectedHospitalDetails.credentials && (
+              <div className="p-4 bg-slate-900 text-white rounded-2xl space-y-2 text-xs border border-slate-800 shadow-md">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="font-extrabold text-teal-400 uppercase text-[10px] tracking-wider">🔑 Hospital Admin Credentials</span>
+                  <span className="text-[10px] text-gray-400 font-mono">Portal ID: {selectedHospitalDetails.credentials.hospitalAdminId}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-xs pt-1">
+                  <div>
+                    <span className="text-[9px] text-gray-400 uppercase block">Admin Login Email</span>
+                    <strong className="text-teal-300 text-xs">{selectedHospitalDetails.credentials.hospitalAdminEmail}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-gray-400 uppercase block">Access Password</span>
+                    <strong className="text-amber-300 text-xs font-bold">
+                      {selectedHospitalDetails.credentials.rawTempPassword || '•••••••• (Hashed)'}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Hospital Specifications Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-semibold text-gray-700">
+              <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                <span className="text-[9px] font-extrabold text-gray-400 uppercase block mb-0.5">Full Physical Address</span>
+                <span className="text-gray-800">{selectedHospitalDetails.address}</span>
+              </div>
+
+              <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                <span className="text-[9px] font-extrabold text-gray-400 uppercase block mb-0.5">Contact Phone &amp; Email</span>
+                <span className="text-gray-800 block">📞 {selectedHospitalDetails.phone}</span>
+                <span className="text-gray-500 text-[11px] block mt-0.5">✉️ {selectedHospitalDetails.contactEmail}</span>
+              </div>
+
+              <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                <span className="text-[9px] font-extrabold text-gray-400 uppercase block mb-0.5">Bed Capacity &amp; Application Date</span>
+                <span className="text-[#003893] font-bold block">🛌 {selectedHospitalDetails.bedCapacity || '50+'} Inpatient Beds</span>
+                <span className="text-gray-400 text-[10px] block mt-0.5">
+                  Applied: {selectedHospitalDetails.appliedAt ? new Date(selectedHospitalDetails.appliedAt).toLocaleDateString() : 'N/A'}
+                </span>
+              </div>
+
+              <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                <span className="text-[9px] font-extrabold text-gray-400 uppercase block mb-0.5">Applicant Google Account</span>
+                <span className="text-gray-800 font-mono text-[11px]">{selectedHospitalDetails.applicantGoogleEmail}</span>
+              </div>
+            </div>
+
+            {/* Medical Specialties */}
+            <div>
+              <h4 className="text-xs font-bold text-[#003893] uppercase tracking-wider mb-2">Offered Medical Specialties</h4>
+              <div className="flex flex-wrap gap-1.5">
+                {(selectedHospitalDetails.specialties || ['General Medicine', 'Emergency Care', 'Cardiology']).map((spec: string, idx: number) => (
+                  <span key={idx} className="px-3 py-1 rounded-xl bg-teal-50 text-teal-800 text-xs font-bold border border-teal-200">
+                    🩺 {spec}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Reason to Join */}
+            {selectedHospitalDetails.reasonToJoin && (
+              <div className="p-3.5 bg-teal-50/50 rounded-2xl border border-teal-100 text-xs text-teal-900 space-y-1">
+                <span className="font-bold text-teal-950 uppercase text-[10px] block">Collaboration Purpose:</span>
+                <p className="leading-relaxed">{selectedHospitalDetails.reasonToJoin}</p>
+              </div>
+            )}
+
+            {/* Affiliated Doctors List */}
+            <div className="space-y-2 pt-2 border-t border-gray-100">
+              <h4 className="text-xs font-bold text-[#003893] uppercase tracking-wider flex items-center justify-between">
+                <span>👨‍⚕️ Affiliated Doctors ({users.filter((u) => u.hospitalId === selectedHospitalDetails.hospitalId || u.doctorProfile?.hospitalId === selectedHospitalDetails.hospitalId || (u.hospitalName && u.hospitalName.toLowerCase().includes(selectedHospitalDetails.name.toLowerCase()))).length})</span>
+                <span className="text-[10px] text-gray-400">Registered Medical Staff</span>
+              </h4>
+
+              {users.filter((u) => u.hospitalId === selectedHospitalDetails.hospitalId || u.doctorProfile?.hospitalId === selectedHospitalDetails.hospitalId || (u.hospitalName && u.hospitalName.toLowerCase().includes(selectedHospitalDetails.name.toLowerCase()))).length === 0 ? (
+                <div className="p-3 text-center text-xs text-gray-400 font-semibold bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  No doctors currently registered under this hospital.
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  {users
+                    .filter((u) => u.hospitalId === selectedHospitalDetails.hospitalId || u.doctorProfile?.hospitalId === selectedHospitalDetails.hospitalId || (u.hospitalName && u.hospitalName.toLowerCase().includes(selectedHospitalDetails.name.toLowerCase())))
+                    .map((docUser) => (
+                      <div key={docUser.id} className="p-2.5 bg-gray-50 rounded-xl border border-gray-150 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-lg bg-[#003893] text-white font-bold flex items-center justify-center text-[10px]">
+                            👨‍⚕️
+                          </span>
+                          <div>
+                            <p className="font-bold text-gray-800 leading-tight">{docUser.name}</p>
+                            <p className="text-[10px] text-gray-400">{docUser.email}</p>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-900 text-[9px] font-bold">
+                          {docUser.doctorProfile?.department || 'General Medicine'}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer Action Buttons */}
+            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+              {selectedHospitalDetails.status === 'pending' ? (
+                <div className="flex items-center gap-2 w-full justify-end">
+                  <button
+                    onClick={() => {
+                      handleHospitalAction(selectedHospitalDetails.hospitalId, 'reject');
+                      setSelectedHospitalDetails(null);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 text-xs font-bold transition"
+                  >
+                    Reject Application
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleHospitalAction(selectedHospitalDetails.hospitalId, 'approve');
+                      setSelectedHospitalDetails(null);
+                    }}
+                    className="px-5 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 shadow transition"
+                  >
+                    Approve Hospital
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setSelectedHospitalDetails(null)}
+                  className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition border border-gray-200"
+                >
+                  Close Inspection Window
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
