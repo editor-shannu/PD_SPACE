@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import bcrypt from 'bcryptjs';
 import { authOptions } from '@/lib/auth';
 import { connectDB } from '@/lib/db';
 import { HospitalModel } from '@/models/hospital';
@@ -54,7 +55,11 @@ export async function GET() {
       specialties: h.specialties || [],
       status: h.status,
       rejectionReason: h.rejectionReason || '',
-      credentials: h.credentials,
+      credentials: h.credentials ? {
+        hospitalAdminId: h.credentials.hospitalAdminId,
+        hospitalAdminEmail: h.credentials.hospitalAdminEmail,
+        rawTempPassword: h.credentials.rawTempPassword || '',
+      } : undefined,
       doctorCount: doctorCountMap[h.hospitalId] || 0,
       appliedAt: h.appliedAt,
       approvedAt: h.approvedAt,
@@ -96,9 +101,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'approve') {
-      // Generate temporary random password
+      // Generate temporary random password with strong bcrypt hashing
       const randPassNum = Math.floor(1000 + Math.random() * 9000);
       const tempPassword = `MediHosp#${randPassNum}`;
+      const passwordHash = await bcrypt.hash(tempPassword, 10);
 
       hospital.status = 'approved';
       hospital.approvedAt = new Date();
@@ -107,7 +113,7 @@ export async function POST(req: NextRequest) {
         hospitalAdminId: hospital.hospitalId,
         hospitalAdminEmail: hospital.contactEmail || hospital.applicantGoogleEmail,
         rawTempPassword: tempPassword,
-        passwordHash: tempPassword,
+        passwordHash: passwordHash,
       };
       await hospital.save();
 
@@ -119,13 +125,13 @@ export async function POST(req: NextRequest) {
           email: adminEmail,
           name: `${hospital.name} Admin`,
           role: 'hospital_admin',
-          password: tempPassword,
+          password: passwordHash,
           hospitalId: hospital.hospitalId,
           hospitalName: hospital.name,
         });
       } else {
         userAdmin.role = 'hospital_admin';
-        userAdmin.password = tempPassword;
+        userAdmin.password = passwordHash;
         userAdmin.hospitalId = hospital.hospitalId;
         userAdmin.hospitalName = hospital.name;
       }

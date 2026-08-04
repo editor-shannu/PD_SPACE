@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import bcrypt from 'bcryptjs';
 import { authOptions } from '@/lib/auth';
 import { connectDB } from '@/lib/db';
 import { HospitalModel } from '@/models/hospital';
@@ -230,9 +231,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'New password must be at least 6 characters long' }, { status: 400 });
       }
 
+      const passwordHash = await bcrypt.hash(newPassword.trim(), 10);
+
       if (hospital) {
-        hospital.credentials.rawTempPassword = newPassword;
-        hospital.credentials.passwordHash = newPassword;
+        hospital.credentials.rawTempPassword = ''; // Erase raw temporary password once updated
+        hospital.credentials.passwordHash = passwordHash;
         await hospital.save();
       }
 
@@ -240,7 +243,7 @@ export async function POST(req: NextRequest) {
       const adminEmail = (hospital?.credentials?.hospitalAdminEmail || cleanEmail).toLowerCase();
       const adminUser = await UserModel.findOne({ email: adminEmail });
       if (adminUser) {
-        adminUser.password = newPassword;
+        adminUser.password = passwordHash;
         await adminUser.save();
       }
 

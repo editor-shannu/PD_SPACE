@@ -46,8 +46,11 @@ export async function GET() {
         specialties: hospital.specialties,
         appliedAt: hospital.appliedAt,
         approvedAt: hospital.approvedAt,
-        rejectionReason: hospital.rejectionReason || '',
-        credentials: hospital.status === 'approved' ? hospital.credentials : undefined,
+        credentials: (hospital.status === 'approved' && hospital.credentials) ? {
+          hospitalAdminId: hospital.credentials.hospitalAdminId,
+          hospitalAdminEmail: hospital.credentials.hospitalAdminEmail,
+          rawTempPassword: hospital.credentials.rawTempPassword || '',
+        } : undefined,
       },
     });
   } catch (error: any) {

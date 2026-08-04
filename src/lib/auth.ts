@@ -1,5 +1,6 @@
 import type { NextAuthOptions, User as NextAuthUser } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import bcrypt from 'bcryptjs';
 import { UserModel } from '@/models/user';
 import { connectDB } from '@/lib/db';
 
@@ -62,11 +63,34 @@ export const authOptions: NextAuthOptions = {
             const hashPass = hospital.credentials?.passwordHash?.trim();
             const cleanInputPass = password ? password.trim() : '';
 
-            // 1a. Direct match against hospital credentials
-            if (cleanInputPass && ((rawPass && cleanInputPass === rawPass) || (hashPass && cleanInputPass === hashPass))) {
+            let isMatch = false;
+
+            // Check bcrypt hash comparison first
+            if (cleanInputPass && hashPass) {
+              if (hashPass.startsWith('$2a$') || hashPass.startsWith('$2b$') || hashPass.startsWith('$2y$')) {
+                isMatch = await bcrypt.compare(cleanInputPass, hashPass);
+              } else if (cleanInputPass === hashPass) {
+                isMatch = true;
+              }
+            }
+
+            // Fallback: direct match against rawTempPassword
+            if (!isMatch && cleanInputPass && rawPass && cleanInputPass === rawPass) {
+              isMatch = true;
+            }
+
+            if (isMatch) {
+              // Upgrade stored password to bcrypt hash if plain text
+              let currentHashedPass = hashPass;
+              if (!hashPass || (!hashPass.startsWith('$2a$') && !hashPass.startsWith('$2b$') && !hashPass.startsWith('$2y$'))) {
+                currentHashedPass = await bcrypt.hash(cleanInputPass, 10);
+                hospital.credentials.passwordHash = currentHashedPass;
+                await hospital.save();
+              }
+
               const adminEmail = (hospital.credentials?.hospitalAdminEmail || hospital.contactEmail || hospital.applicantGoogleEmail).toLowerCase().trim();
 
-              // Ensure UserModel is synced with hospital_admin role & password
+              // Ensure UserModel is synced with hospital_admin role & hashed password
               let uAdmin = await UserModel.findOne({
                 $or: [
                   { email: adminEmail },
@@ -77,7 +101,7 @@ export const authOptions: NextAuthOptions = {
                 uAdmin.role = 'hospital_admin';
                 uAdmin.hospitalId = hospital.hospitalId;
                 uAdmin.hospitalName = hospital.name;
-                uAdmin.password = cleanInputPass;
+                uAdmin.password = currentHashedPass;
                 await uAdmin.save();
               }
 
@@ -101,15 +125,30 @@ export const authOptions: NextAuthOptions = {
                 role: 'hospital_admin',
               });
 
-              if (userHosp && userHosp.password && userHosp.password.trim() === cleanInputPass) {
-                return {
-                  id: userHosp._id.toString(),
-                  email: userHosp.email,
-                  name: userHosp.name || `${hospital.name} Admin`,
-                  role: 'hospital_admin',
-                  hospitalId: userHosp.hospitalId || hospital.hospitalId,
-                  hospitalName: userHosp.hospitalName || hospital.name,
-                } as SessionUser;
+              if (userHosp && userHosp.password) {
+                const storedPass = userHosp.password.trim();
+                let userMatched = false;
+                if (storedPass.startsWith('$2a$') || storedPass.startsWith('$2b$') || storedPass.startsWith('$2y$')) {
+                  userMatched = await bcrypt.compare(cleanInputPass, storedPass);
+                } else {
+                  userMatched = cleanInputPass === storedPass;
+                }
+
+                if (userMatched) {
+                  if (!storedPass.startsWith('$2a$') && !storedPass.startsWith('$2b$') && !storedPass.startsWith('$2y$')) {
+                    userHosp.password = await bcrypt.hash(cleanInputPass, 10);
+                    await userHosp.save();
+                  }
+
+                  return {
+                    id: userHosp._id.toString(),
+                    email: userHosp.email,
+                    name: userHosp.name || `${hospital.name} Admin`,
+                    role: 'hospital_admin',
+                    hospitalId: userHosp.hospitalId || hospital.hospitalId,
+                    hospitalName: userHosp.hospitalName || hospital.name,
+                  } as SessionUser;
+                }
               }
             }
 
@@ -125,15 +164,30 @@ export const authOptions: NextAuthOptions = {
             role: 'hospital_admin',
           });
 
-          if (hospUser && password && hospUser.password && hospUser.password.trim() === password.trim()) {
-            return {
-              id: hospUser._id.toString(),
-              email: hospUser.email,
-              name: hospUser.name,
-              role: 'hospital_admin',
-              hospitalId: hospUser.hospitalId,
-              hospitalName: hospUser.hospitalName,
-            } as SessionUser;
+          if (hospUser && password && hospUser.password) {
+            const storedPass = hospUser.password.trim();
+            const cleanPass = password.trim();
+            let matched = false;
+            if (storedPass.startsWith('$2a$') || storedPass.startsWith('$2b$') || storedPass.startsWith('$2y$')) {
+              matched = await bcrypt.compare(cleanPass, storedPass);
+            } else {
+              matched = cleanPass === storedPass;
+            }
+
+            if (matched) {
+              if (!storedPass.startsWith('$2a$') && !storedPass.startsWith('$2b$') && !storedPass.startsWith('$2y$')) {
+                hospUser.password = await bcrypt.hash(cleanPass, 10);
+                await hospUser.save();
+              }
+              return {
+                id: hospUser._id.toString(),
+                email: hospUser.email,
+                name: hospUser.name,
+                role: 'hospital_admin',
+                hospitalId: hospUser.hospitalId,
+                hospitalName: hospUser.hospitalName,
+              } as SessionUser;
+            }
           }
         }
 
