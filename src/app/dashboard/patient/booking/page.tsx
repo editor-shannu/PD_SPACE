@@ -390,12 +390,25 @@ function BookingFlow() {
     return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30';
   };
 
-  const targetSelectedHospObj = hospitalsList.find((h) => h.hospitalId === selectedHospital);
-
   const availableDoctors = registeredDoctors.filter((d) => {
     const matchDept = !selectedDept || d.department.toLowerCase() === selectedDept.toLowerCase();
-    const matchHosp = !selectedHospital || d.hospitalId === selectedHospital || (d.hospitalName && targetSelectedHospObj && d.hospitalName.toLowerCase().includes(targetSelectedHospObj.name.toLowerCase()));
-    return matchDept && matchHosp;
+
+    if (selectedHospital) {
+      const targetHosp = hospitalsList.find((h) => h.hospitalId === selectedHospital);
+      const hospNameLower = targetHosp?.name?.toLowerCase().trim() || '';
+      const hospIdLower = selectedHospital.toLowerCase().trim();
+
+      const docHospId = (d.hospitalId || '').toLowerCase().trim();
+      const docHospName = (d.hospitalName || '').toLowerCase().trim();
+
+      const matchesHosp =
+        (docHospId && docHospId === hospIdLower) ||
+        (docHospName && hospNameLower && (docHospName.includes(hospNameLower) || hospNameLower.includes(docHospName)));
+
+      return matchDept && matchesHosp;
+    }
+
+    return matchDept;
   });
 
   const availableSlots = selectedDoc
@@ -625,14 +638,11 @@ function BookingFlow() {
                           </option>
                         ))
                       ) : (
-                        // Fallback: show doctors matching department if no exact match for specific hospital
-                        registeredDoctors
-                          .filter((d) => !selectedDept || d.department.toLowerCase() === selectedDept.toLowerCase())
-                          .map((doc: DoctorOption) => (
-                            <option key={doc.id || doc.name} value={doc.name}>
-                              {doc.name} {doc.hospitalName ? `🏥 (${doc.hospitalName})` : ''} {doc.isRegisteredPortalUser ? '✅ (Verified Portal Doctor)' : ''}
-                            </option>
-                          ))
+                        <option value="" disabled className="text-gray-400">
+                          {selectedHospital
+                            ? '⚠️ No registered doctors found for this hospital'
+                            : '⚠️ No registered doctors found for this department'}
+                        </option>
                       )}
                     </select>
                   </div>
