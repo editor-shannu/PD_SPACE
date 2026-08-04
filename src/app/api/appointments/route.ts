@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
     const patientUser: any = await UserModel.findById(patientId).select('name email emrProfile').lean().catch(() => null);
 
     const body = await req.json();
-    const { doctorId, doctorName, department, date, time, urgency } = body;
+    const { doctorId, doctorName, hospitalId, hospitalName, department, date, time, urgency } = body;
 
     if (!doctorName || !department || !date || !time) {
       return NextResponse.json({ success: false, error: 'Missing required booking fields' }, { status: 400 });
@@ -141,6 +141,8 @@ export async function POST(req: NextRequest) {
       patientPhone,
       doctorId: doctorId || '',
       doctorName,
+      hospitalId: hospitalId || '',
+      hospitalName: hospitalName || '',
       department,
       date,
       time,

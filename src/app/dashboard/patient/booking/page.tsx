@@ -15,14 +15,26 @@ interface DoctorOption {
   name: string;
   email: string;
   department: string;
+  hospitalName?: string;
+  hospitalId?: string;
   slots: string[];
   isRegisteredPortalUser?: boolean;
+}
+
+interface HospitalOption {
+  hospitalId: string;
+  name: string;
+  address?: string;
+  specialties?: string[];
+  phone?: string;
 }
 
 interface Appointment {
   _id?: string;
   id?: string;
   doctorName: string;
+  hospitalId?: string;
+  hospitalName?: string;
   department: string;
   date: string;
   time: string;
@@ -54,6 +66,10 @@ function BookingFlow() {
   const [registeredDoctors, setRegisteredDoctors] = useState<DoctorOption[]>([]);
   const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
 
+  // Partner Hospitals list fetched from server
+  const [hospitalsList, setHospitalsList] = useState<HospitalOption[]>([]);
+  const [isLoadingHospitals, setIsLoadingHospitals] = useState(true);
+
   // Symptom Analysis states
   const [symptoms, setSymptoms] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -61,6 +77,7 @@ function BookingFlow() {
   const [analysisError, setAnalysisError] = useState('');
 
   // Booking Form states
+  const [selectedHospital, setSelectedHospital] = useState(''); // hospitalId or ''
   const [selectedDept, setSelectedDept] = useState('');
   const [selectedDocId, setSelectedDocId] = useState('');
   const [selectedDoc, setSelectedDoc] = useState('');
@@ -95,6 +112,26 @@ function BookingFlow() {
         console.error('Error fetching registered doctors:', err);
       } finally {
         setIsLoadingDoctors(false);
+      }
+    })();
+  }, []);
+
+  // Fetch approved partner hospitals from backend API
+  useEffect(() => {
+    (async () => {
+      setIsLoadingHospitals(true);
+      try {
+        const res = await fetch('/api/hospitals/list');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.hospitals) {
+            setHospitalsList(data.hospitals);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching partner hospitals:', err);
+      } finally {
+        setIsLoadingHospitals(false);
       }
     })();
   }, []);
@@ -226,12 +263,44 @@ function BookingFlow() {
     }
   };
 
+  // Sync when hospital changes
+  const handleHospitalChange = (hospId: string) => {
+    setSelectedHospital(hospId);
+    const targetHosp = hospitalsList.find((h) => h.hospitalId === hospId);
+
+    const docs = registeredDoctors.filter((d) => {
+      const matchHosp = !hospId || d.hospitalId === hospId || (d.hospitalName && targetHosp && d.hospitalName.toLowerCase().includes(targetHosp.name.toLowerCase()));
+      const matchDept = !selectedDept || d.department.toLowerCase() === selectedDept.toLowerCase();
+      return matchHosp && matchDept;
+    });
+
+    if (docs.length > 0) {
+      const doc = docs[0];
+      setSelectedDoc(doc.name);
+      setSelectedDocId(doc.id);
+      if (doc.slots && doc.slots.length > 0) {
+        setSelectedSlot(doc.slots[0]);
+      } else {
+        setSelectedSlot('');
+      }
+    } else {
+      // If no doc in that specific hospital & dept combination, keep selecting
+      setSelectedDoc('');
+      setSelectedDocId('');
+      setSelectedSlot('');
+    }
+  };
+
   // Sync doctor slots when department changes manually
   const handleDeptChange = (dept: string) => {
     setSelectedDept(dept);
-    const docs = registeredDoctors.filter(
-      (d) => d.department.toLowerCase() === dept.toLowerCase()
-    );
+    const targetHosp = hospitalsList.find((h) => h.hospitalId === selectedHospital);
+    const docs = registeredDoctors.filter((d) => {
+      const matchDept = !dept || d.department.toLowerCase() === dept.toLowerCase();
+      const matchHosp = !selectedHospital || d.hospitalId === selectedHospital || (d.hospitalName && targetHosp && d.hospitalName.toLowerCase().includes(targetHosp.name.toLowerCase()));
+      return matchDept && matchHosp;
+    });
+
     if (docs.length > 0) {
       const doc = docs[0];
       setSelectedDoc(doc.name);
@@ -251,10 +320,7 @@ function BookingFlow() {
   // Sync slots when doctor changes manually
   const handleDocChange = (docName: string) => {
     setSelectedDoc(docName);
-    const docs = registeredDoctors.filter(
-      (d) => d.department.toLowerCase() === selectedDept.toLowerCase()
-    );
-    const foundDoc = docs.find((d) => d.name === docName);
+    const foundDoc = registeredDoctors.find((d) => d.name === docName);
     if (foundDoc) {
       setSelectedDocId(foundDoc.id);
       if (foundDoc.slots && foundDoc.slots.length > 0) {
@@ -278,6 +344,9 @@ function BookingFlow() {
     setIsBooking(true);
     setBookingError('');
 
+    const targetHospObj = hospitalsList.find((h) => h.hospitalId === selectedHospital);
+    const doctorObj = registeredDoctors.find((d) => d.id === selectedDocId);
+
     try {
       const res = await fetch('/api/appointments', {
         method: 'POST',
@@ -285,6 +354,8 @@ function BookingFlow() {
         body: JSON.stringify({
           doctorId: selectedDocId,
           doctorName: selectedDoc,
+          hospitalId: selectedHospital || doctorObj?.hospitalId || '',
+          hospitalName: targetHospObj?.name || doctorObj?.hospitalName || '',
           department: selectedDept,
           date: bookingDate,
           time: selectedSlot,
@@ -296,6 +367,7 @@ function BookingFlow() {
       if (data.success) {
         setBookingSuccess(true);
         // Clear form
+        setSelectedHospital('');
         setSelectedDoc('');
         setSelectedDocId('');
         setSelectedSlot('');
@@ -318,12 +390,16 @@ function BookingFlow() {
     return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30';
   };
 
-  const availableDoctors = selectedDept
-    ? registeredDoctors.filter((d) => d.department.toLowerCase() === selectedDept.toLowerCase())
-    : registeredDoctors;
+  const targetSelectedHospObj = hospitalsList.find((h) => h.hospitalId === selectedHospital);
+
+  const availableDoctors = registeredDoctors.filter((d) => {
+    const matchDept = !selectedDept || d.department.toLowerCase() === selectedDept.toLowerCase();
+    const matchHosp = !selectedHospital || d.hospitalId === selectedHospital || (d.hospitalName && targetSelectedHospObj && d.hospitalName.toLowerCase().includes(targetSelectedHospObj.name.toLowerCase()));
+    return matchDept && matchHosp;
+  });
 
   const availableSlots = selectedDoc
-    ? availableDoctors.find((d) => d.name === selectedDoc)?.slots || ['09:00 AM', '11:00 AM', '02:00 PM', '04:00 PM']
+    ? registeredDoctors.find((d) => d.name === selectedDoc)?.slots || ['09:00 AM', '11:00 AM', '02:00 PM', '04:00 PM']
     : [];
 
   return (
@@ -340,7 +416,7 @@ function BookingFlow() {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-[#003893] tracking-tight">Specialist Bookings</h1>
-          <p className="text-xs text-gray-400 font-semibold">Registered doctors only &amp; Verified Checkup Certificates</p>
+          <p className="text-xs text-gray-400 font-semibold">Registered doctors &amp; Partner Hospitals</p>
         </div>
       </div>
 
@@ -438,7 +514,7 @@ function BookingFlow() {
             </span>
             <h2 className="text-base font-black text-[#003893] mb-1">Verify and Book Appointment</h2>
             <p className="text-gray-400 text-xs mb-4">
-              Select a registered doctor from the provider portal to schedule your consultation.
+              Select a partner hospital or registered doctor from the provider portal to schedule your consultation.
             </p>
 
             {bookingSuccess ? (
@@ -458,6 +534,7 @@ function BookingFlow() {
                       setBookingSuccess(false);
                       setRecommendation(null);
                       setSymptoms('');
+                      setSelectedHospital('');
                       setSelectedDept('');
                       setSelectedDoc('');
                       setSelectedDocId('');
@@ -478,6 +555,25 @@ function BookingFlow() {
               </div>
             ) : (
               <form onSubmit={handleBookAppointment} className="space-y-4">
+                {/* Hospital / Clinic Selector */}
+                <div>
+                  <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                    Hospital / Healthcare Center {isLoadingHospitals && '(Loading...)'}
+                  </label>
+                  <select
+                    value={selectedHospital}
+                    onChange={(e) => handleHospitalChange(e.target.value)}
+                    className="w-full p-3 text-xs font-semibold text-[#003893] bg-white border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2ab8d8]"
+                  >
+                    <option value="">All Partner Hospitals &amp; Independent Practices</option>
+                    {hospitalsList.map((h) => (
+                      <option key={h.hospitalId} value={h.hospitalId}>
+                        🏥 {h.name} ({h.hospitalId})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Department selector */}
                   <div>
@@ -518,15 +614,26 @@ function BookingFlow() {
                     <select
                       value={selectedDoc}
                       onChange={(e) => handleDocChange(e.target.value)}
-                      disabled={!selectedDept || isLoadingDoctors}
+                      disabled={isLoadingDoctors}
                       className="w-full p-3 text-xs font-semibold text-[#003893] bg-white border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2ab8d8] disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
                       <option value="">Select Registered Doctor</option>
-                      {availableDoctors.map((doc: DoctorOption) => (
-                        <option key={doc.id || doc.name} value={doc.name}>
-                          {doc.name} {doc.isRegisteredPortalUser ? '✅ (Verified Portal Doctor)' : ''}
-                        </option>
-                      ))}
+                      {availableDoctors.length > 0 ? (
+                        availableDoctors.map((doc: DoctorOption) => (
+                          <option key={doc.id || doc.name} value={doc.name}>
+                            {doc.name} {doc.hospitalName ? `🏥 (${doc.hospitalName})` : ''} {doc.isRegisteredPortalUser ? '✅ (Verified Portal Doctor)' : ''}
+                          </option>
+                        ))
+                      ) : (
+                        // Fallback: show doctors matching department if no exact match for specific hospital
+                        registeredDoctors
+                          .filter((d) => !selectedDept || d.department.toLowerCase() === selectedDept.toLowerCase())
+                          .map((doc: DoctorOption) => (
+                            <option key={doc.id || doc.name} value={doc.name}>
+                              {doc.name} {doc.hospitalName ? `🏥 (${doc.hospitalName})` : ''} {doc.isRegisteredPortalUser ? '✅ (Verified Portal Doctor)' : ''}
+                            </option>
+                          ))
+                      )}
                     </select>
                   </div>
 
@@ -619,7 +726,12 @@ function BookingFlow() {
                         <div>
                           <h3 className="text-sm font-bold text-[#003893]">{app.doctorName}</h3>
                           <p className="text-xs text-gray-400 mt-0.5">{app.department} Department</p>
-                          <div className="flex items-center gap-2 mt-2">
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            {app.hospitalName && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-50 text-[#003893] border border-blue-100">
+                                🏥 {app.hospitalName}
+                              </span>
+                            )}
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-gray-100 text-gray-500 uppercase">
                               🗓️ {app.date}
                             </span>

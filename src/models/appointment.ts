@@ -14,6 +14,8 @@ export interface IAppointment extends Document {
   patientPhone?: string;
   doctorId?: string;
   doctorName: string;
+  hospitalId?: string;
+  hospitalName?: string;
   department: string;
   date: string;
   time: string;
@@ -32,6 +34,8 @@ const appointmentSchema = new Schema<IAppointment>(
     patientPhone: { type: String, default: '' },
     doctorId: { type: String, index: true, default: '' },
     doctorName: { type: String, required: true },
+    hospitalId: { type: String, default: '' },
+    hospitalName: { type: String, default: '' },
     department: { type: String, required: true },
     date: { type: String, required: true },
     time: { type: String, required: true },
