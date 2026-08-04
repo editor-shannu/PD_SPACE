@@ -22,8 +22,7 @@ export async function GET(req: NextRequest) {
       currentUser?.doctorApplicationStatus === 'approved' ||
       userRole === 'doctor' ||
       userRole === 'admin' ||
-      session.user.email === 'heallink.care@gmail.com' ||
-      session.user.email === 'mediflow@test.com';
+      session.user.email === 'heallink.care@gmail.com';
 
     const { searchParams } = new URL(req.url);
     const viewAll = searchParams.get('all') === 'true' && userRole === 'admin';
@@ -172,8 +171,7 @@ export async function PUT(req: NextRequest) {
       currentUser?.doctorApplicationStatus === 'approved' ||
       userRole === 'doctor' ||
       userRole === 'admin' ||
-      session.user.email === 'heallink.care@gmail.com' ||
-      session.user.email === 'mediflow@test.com';
+      session.user.email === 'heallink.care@gmail.com';
 
     if (!isApprovedDoctor) {
       return NextResponse.json({ success: false, error: 'Forbidden. Doctor authorization required.' }, { status: 403 });

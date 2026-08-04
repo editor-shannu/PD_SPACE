@@ -30,8 +30,7 @@ export async function POST(req: NextRequest) {
       currentUser?.doctorApplicationStatus === 'approved' ||
       dbRole === 'doctor' ||
       dbRole === 'admin' ||
-      session.user.email === 'heallink.care@gmail.com' ||
-      session.user.email === 'mediflow@test.com';
+      session.user.email === 'heallink.care@gmail.com';
 
     if (!currentUser || !isApprovedDoctor) {
       return NextResponse.json(

@@ -373,9 +373,16 @@ export async function GET(req: NextRequest) {
 
     // Check role and email to ensure safety
     const email = session.user.email?.toLowerCase().trim();
+    const isPrimaryAdmin = email === 'heallink.care@gmail.com';
     const dbUser = await UserModel.findOne({ email });
-    if (!dbUser || dbUser.role !== 'admin' || (email !== 'heallink.care@gmail.com' && email !== 'mediflow@test.com')) {
-      return NextResponse.json({ success: false, error: 'Forbidden: Admin access only' }, { status: 403 });
+
+    if (!isPrimaryAdmin && dbUser?.role !== 'admin' && (session.user as any)?.role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'Forbidden: Primary Admin (heallink.care@gmail.com) access only' }, { status: 403 });
+    }
+
+    if (isPrimaryAdmin && dbUser && dbUser.role !== 'admin') {
+      dbUser.role = 'admin';
+      await dbUser.save();
     }
 
 

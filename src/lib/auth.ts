@@ -107,39 +107,7 @@ export const authOptions: NextAuthOptions = {
 
         const email = inputIdentifier.toLowerCase();
 
-        // 2. Evaluator Demo Admin
-        if (email === 'mediflow@test.com') {
-          if (password !== 'mediflow@2026') {
-            throw new Error('Invalid password for demo account');
-          }
-
-          try {
-            let user = await UserModel.findOne({ email });
-            if (!user) {
-              user = new UserModel({
-                email,
-                name: 'MediFlow Evaluator',
-                role: 'admin',
-              });
-              await user.save();
-            } else if (user.role !== 'admin') {
-              user.role = 'admin';
-              await user.save();
-            }
-
-            return {
-              id:    user._id.toString(),
-              email,
-              name:  user.name,
-              role:  'admin',
-            } as SessionUser;
-          } catch (error: any) {
-            console.error('MediFlow evaluator auth error:', error);
-            throw new Error(`Authentication failed — ${error.message || 'database error'}`);
-          }
-        }
-
-        // 3. Standard Google / User Login
+        // 2. Standard Google / User Login
         const name  = credentials.name  || email.split('@')[0];
         const image = credentials.image || null;
         const isAdminEmail = email === 'heallink.care@gmail.com';
@@ -174,7 +142,7 @@ export const authOptions: NextAuthOptions = {
             email,
             name,
             image,
-            role:         user.role || 'patient',
+            role:         isAdminEmail ? 'admin' : (user.role || 'patient'),
             hospitalId:   user.hospitalId,
             hospitalName: user.hospitalName,
           } as SessionUser;
@@ -193,12 +161,15 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, user }) {
+      if (token.email?.toLowerCase().trim() === 'heallink.care@gmail.com') {
+        token.role = 'admin';
+      }
       if (user) {
         token.id           = user.id;
         token.email        = user.email;
         token.name         = user.name;
         token.picture      = user.image;
-        token.role         = (user as SessionUser).role || 'patient';
+        token.role         = token.email?.toLowerCase().trim() === 'heallink.care@gmail.com' ? 'admin' : ((user as SessionUser).role || 'patient');
         token.hospitalId   = (user as SessionUser).hospitalId;
         token.hospitalName = (user as SessionUser).hospitalName;
       } else if (token.email) {
@@ -206,7 +177,9 @@ export const authOptions: NextAuthOptions = {
           await connectDB();
           const dbUser: any = await UserModel.findOne({ email: token.email }).select('role doctorApplicationStatus hospitalId hospitalName').lean();
           if (dbUser) {
-            if (dbUser.role === 'hospital_admin') {
+            if (token.email.toLowerCase().trim() === 'heallink.care@gmail.com') {
+              token.role = 'admin';
+            } else if (dbUser.role === 'hospital_admin') {
               token.role = 'hospital_admin';
               token.hospitalId = dbUser.hospitalId;
               token.hospitalName = dbUser.hospitalName;

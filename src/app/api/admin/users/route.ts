@@ -9,7 +9,7 @@ async function checkAdmin() {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email?.toLowerCase().trim();
   const role = (session?.user as any)?.role;
-  if (!session?.user || (email !== 'heallink.care@gmail.com' && email !== 'mediflow@test.com' && role !== 'admin')) {
+  if (!session?.user || (email !== 'heallink.care@gmail.com' && role !== 'admin')) {
     return { authorized: false, session };
   }
   return { authorized: true, session };
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     }
 
     const emailToModify = userToModify.email.toLowerCase().trim();
-    if (emailToModify === 'heallink.care@gmail.com' || emailToModify === 'mediflow@test.com') {
+    if (emailToModify === 'heallink.care@gmail.com') {
       return NextResponse.json({ success: false, error: 'Cannot modify permissions for the primary administrator.' }, { status: 400 });
     }
 

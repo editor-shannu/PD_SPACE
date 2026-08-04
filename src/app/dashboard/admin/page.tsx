@@ -233,7 +233,8 @@ export default function AdminDashboard() {
 
   // 3. Forbidden / Wrong Role State
   const userRole = (session?.user as any)?.role;
-  const isAdmin = userRole === 'admin';
+  const userEmail = session?.user?.email?.toLowerCase().trim();
+  const isAdmin = userRole === 'admin' || userEmail === 'heallink.care@gmail.com';
 
   if (!isAdmin || errorMessage.includes('Access Denied')) {
     return (

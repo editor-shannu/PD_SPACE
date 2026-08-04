@@ -264,7 +264,7 @@ function LoginForm() {
                 }
 
                 const emailLower = email.toLowerCase().trim();
-                if (emailLower === 'mediflow@test.com' || emailLower === 'heallink.care@gmail.com') {
+                if (emailLower === 'heallink.care@gmail.com') {
                   window.location.href = 'https://admin-mediflow.shanmukhmedisetty.site';
                 } else {
                   window.location.href = callbackUrl;

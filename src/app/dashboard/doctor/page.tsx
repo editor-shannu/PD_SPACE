@@ -368,7 +368,7 @@ export default function DoctorDashboardPage() {
       fetchAvailableDoctors();
       fetchReferrals();
       fetchHospitalsList();
-      if (email === 'heallink.care@gmail.com' || email === 'mediflow@test.com' || userRole === 'admin') {
+      if (email === 'heallink.care@gmail.com' || userRole === 'admin') {
         setAppStatus('approved');
         fetchPatients('');
         fetchAppointments();
