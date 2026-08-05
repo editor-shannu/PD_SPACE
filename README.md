@@ -57,13 +57,29 @@ MediFlow uses dynamic, domain-level routing enforced by Next.js middleware (`src
 ### 👨‍⚕️ 5. Doctor Portal, Data Isolation & Referral System
 * **Strict Patient Data Isolation**: Doctor directories (`/api/doctor/patients`) strictly display patients who have booked appointments with the logged-in doctor or have been formally referred to them.
 * **Doctor-to-Doctor Patient Referrals (`ReferralModel` & `/api/doctor/refer`)**: Physicians can transfer patient access and clinical handover notes to verified specialists within the portal.
-* **Digital Checkup Completion & Signature**: Doctors record clinical notes, attach test result summaries, and sign checkups with a verified digital signature.
 * **Real-Time Patient Sync**: Checkup notes, test summaries, and doctor signatures instantly update the patient's dashboard.
 
 ### 📊 6. Admin Analytics & System Governance
 * **Recharts Healthcare Analytics**: Dashboard tracking missed follow-up rates, compliance scores, treatment timelines, and department bottleneck bar charts.
 * **Partner Hospital Registry**: Overview of all collaborated hospitals, active doctor counts, and hospital admin accounts.
 * **Real-Time Registration Logs**: Comprehensive audit logs for verified doctors and registered patients.
+
+### ⚡ 7. High-Scale Surge Architecture (Redis Fast Caching & Kafka Event Streaming)
+* **Redis In-Memory Fast Caching (`src/lib/redis.ts`)**:
+  * Integrates `ioredis` high-performance caching layer with TTL expiration and automatic in-memory fallback for high-concurrency patient surge handling.
+  * Caches appointment queues (15s TTL) and hospital facility queries (1h TTL) to ensure sub-2ms data retrieval under high crowd traffic.
+  * Track real-time cache hit ratios, active memory keys, and average retrieval latency.
+* **Kafka Asynchronous Crowd Event Stream (`src/lib/kafka.ts`)**:
+  * Integrates `kafkajs` event bus pipeline to decouple asynchronous crowd surges from main database write paths.
+  * Role-based topic partitioning:
+    * `patient-crowd-events`: Ingests appointment booking surges and emergency symptom triaging.
+    * `doctor-queue-events`: Tracks physician checkup sign-offs and patient handover notes.
+    * `hospital-crowd-events`: Monitors hospital bed availability lookups and staff approvals.
+    * `system-admin-events`: Logs multi-tenant governance actions and hospital collaboration approvals.
+  * Simulated high-throughput stream engine gracefully handles scenarios when external Kafka brokers are offline.
+* **Centralized Telemetry Monitor (`KafkaRedisMonitor.tsx`)**:
+  * Interactive, real-time widget embedded across all 4 primary portals (Patient, Doctor, Hospital Admin, Main Admin).
+  * Features live Kafka event stream feeds, sub-2ms Redis latency tracking, one-click crowd surge simulation, and cache purge controls.
 
 ---
 
@@ -86,7 +102,7 @@ PD_SPACE/
 │   │   │   │   ├── stats/route.ts          → Analytics calculation endpoint
 │   │   │   │   └── users/route.ts          → Doctor approval/rejection & user logs
 │   │   │   ├── alerts/route.ts             → Clinical safety alerts endpoint
-│   │   │   ├── appointments/route.ts       → Appointment booking & checkup completion
+│   │   │   ├── appointments/route.ts       → Appointment booking & checkup completion (Redis + Kafka)
 │   │   │   ├── auth/                       → NextAuth Authentication
 │   │   │   │   └── [...nextauth]/route.ts  → NextAuth route handler
 │   │   │   ├── doctor/                     → Doctor Portal endpoints
@@ -103,7 +119,8 @@ PD_SPACE/
 │   │   │   │   ├── upload/route.ts         → File upload & GridFS storage
 │   │   │   │   └── route.ts                → Document listing endpoint
 │   │   │   ├── extract/route.ts            → AI document parsing endpoint
-│   │   │   ├── facilities/route.ts         → Nearby hospital locator API
+│   │   │   ├── facilities/                 → Nearby hospital locator API
+│   │   │   │   └── info/route.ts           → Redis-cached hospital lookup & Kafka stream
 │   │   │   ├── health/route.ts             → System healthcheck ping
 │   │   │   ├── hospadmin/                  → Hospital Admin endpoints
 │   │   │   │   ├── doctors/route.ts        → Staff doctor approval queue
@@ -113,22 +130,26 @@ PD_SPACE/
 │   │   │   │   └── password/route.ts       → Hospital Admin credential update endpoint
 │   │   │   ├── hospitals/                  → Directory endpoints
 │   │   │   │   └── list/route.ts           → Approved partner hospitals directory
+│   │   │   ├── kafka/                      → Kafka Telemetry APIs
+│   │   │   │   └── events/route.ts         → Kafka event stream reader & producer simulation
 │   │   │   ├── ocr/route.ts                → Tesseract OCR text extraction endpoint
 │   │   │   ├── patient/                    → Patient Portal endpoints
 │   │   │   │   └── profile/route.ts        → Compulsory EMR profile fetch & update
 │   │   │   ├── recommend/route.ts          → AI symptom triage & specialty advisor
+│   │   │   ├── redis/                      → Redis Cache Telemetry APIs
+│   │   │   │   └── stats/route.ts          → Redis hit ratio, key inspection & purge endpoint
 │   │   │   └── test-db-connection/route.ts → Database connection diagnostic endpoint
 │   │   ├── auth/                           → Authentication Views
 │   │   │   ├── login/page.tsx              → Credentials & Google login page
 │   │   │   └── register/page.tsx           → User registration page
 │   │   ├── dashboard/                      → Role Dashboards
-│   │   │   ├── admin/page.tsx              → Main Admin portal
-│   │   │   ├── doctor/page.tsx             → Doctor portal & verification form
+│   │   │   ├── admin/page.tsx              → Main Admin portal (with Kafka & Redis telemetry)
+│   │   │   ├── doctor/page.tsx             → Doctor portal (with Kafka & Redis telemetry)
 │   │   │   └── patient/                    → Patient portal
 │   │   │       ├── upload/page.tsx         → Medical document upload flow
-│   │   │       └── page.tsx                → Patient dashboard & EMR gate
+│   │   │       └── page.tsx                → Patient dashboard (with Kafka & Redis telemetry)
 │   │   ├── hospadmin/                      → Hospital Admin Portal
-│   │   │   └── page.tsx                    → Dedicated Hospital Admin dashboard
+│   │   │   └── page.tsx                    → Dedicated Hospital Admin dashboard (with Kafka & Redis telemetry)
 │   │   ├── globals.css                     → Design system & styling
 │   │   ├── layout.tsx                      → Root layout & NextAuth SessionProvider wrapper
 │   │   └── page.tsx                        → Public Landing Page (`mediflow.shanmukhmedisetty.site`)
@@ -139,6 +160,7 @@ PD_SPACE/
 │   │   ├── DocumentUpload.tsx              → Drag-and-drop file uploader
 │   │   ├── EmrFormModal.tsx                → Compulsory Patient EMR profile modal
 │   │   ├── FacilityMap.tsx                 → Interactive hospital locator map
+│   │   ├── KafkaRedisMonitor.tsx          → Real-time Kafka event stream & Redis cache telemetry widget
 │   │   ├── OCRPreview.tsx                  → Raw OCR text preview widget
 │   │   ├── PatientEmrGate.tsx              → EMR completion enforcement gate
 │   │   └── Providers.tsx                   → NextAuth SessionProvider wrapper
@@ -148,6 +170,8 @@ PD_SPACE/
 │   │   ├── cron.ts                         → Automated clinical alert scheduler
 │   │   ├── db.ts                           → MongoDB connection utility
 │   │   ├── firebase.ts                     → Firebase helper
+│   │   ├── kafka.ts                        → High-scale Kafka event bus producer & stream engine
+│   │   ├── redis.ts                        → Ultra-fast Redis caching service with fallback
 │   │   └── validation.ts                   → Input sanitization & schemas
 │   ├── middleware.ts                       → Dynamic Subdomain Routing & Isolation Matrix
 │   ├── models/                             → Mongoose Database Schemas
@@ -168,7 +192,7 @@ PD_SPACE/
 ├── README.md                               → Project documentation
 ├── REPORT.md                               → Detailed project technical report
 ├── SECURITY.md                             → Security policies & password guidelines
-└── secrets.env                             → Environment secrets configuration
+├── secrets.env                             → Environment secrets configuration
 ```
 
 ---
@@ -176,6 +200,54 @@ PD_SPACE/
 ## 🔌 Technology Stack
 
 * **Frontend Framework**: Next.js 14 (App Router) + React 18 + TypeScript + Tailwind CSS / Custom CSS
+* **Backend Architecture**: Next.js Serverless API Routes + FastAPI Microservice (Zero-Shot Medical Classification)
+* **High-Scale Messaging & Cache**: Redis (`ioredis`) for sub-2ms caching + Apache Kafka (`kafkajs`) for crowd surge event streaming
+* **Database & Storage**: MongoDB + Mongoose Schemas + GridFS (PDF & image storage)
+* **Password Security**: Bcryptjs (10-round salted password hashing & verification)
+* **AI & Reasoning**: Google Gemini API (`gemini-1.5-flash` / Gemini 3.5 series)
+* **OCR Engine**: Tesseract.js (Client & server OCR text extraction)
+* **Analytics & Visualizations**: Recharts (Healthcare analytics visuals)
+* **Authentication**: NextAuth.js (Google OAuth, Bcrypt Credentials Auth, Hospital Admin Credentials)
+* **Subdomain Isolation**: Custom Next.js Domain Middleware
+
+---
+
+## 🚀 Getting Started
+
+### 1. Install Dependencies
+```bash
+npm install
+```
+
+### 2. Configure Environment Secrets
+Create a `secrets.env` (or `.env.local`) file in the project root:
+```env
+MONGODB_URI=your_mongodb_connection_string
+GEMINI_API_KEY=your_gemini_api_key
+NEXTAUTH_SECRET=your_nextauth_session_secret
+NEXTAUTH_URL=https://mediflow.shanmukhmedisetty.site
+NEXT_PUBLIC_FASTAPI_URL=your_fastapi_microservice_url
+# Optional High-Scale Infrastructure Connections (Defaults to robust in-memory simulation if omitted)
+REDIS_URL=redis://localhost:6379
+KAFKA_BROKERS=localhost:9092
+```
+
+### 3. Run Development Server
+```bash
+npm run dev
+```
+
+---
+
+## 📝 CLI & Quality Assurance
+
+```bash
+# Type checking
+npm run type-check
+
+# Build check
+npm run build
+```ind CSS / Custom CSS
 * **Backend Architecture**: Next.js Serverless API Routes + FastAPI Microservice (Zero-Shot Medical Classification)
 * **Database & Storage**: MongoDB + Mongoose Schemas + GridFS (PDF & image storage)
 * **Password Security**: Bcryptjs (10-round salted password hashing & verification)

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import KafkaRedisMonitor from '@/components/KafkaRedisMonitor';
 
 interface Patient {
   id: string;
@@ -857,6 +858,9 @@ export default function DoctorDashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* Kafka & Redis Telemetry Monitor */}
+      <KafkaRedisMonitor role="doctor" title="Doctor Consultation Queue & Fast Cache Telemetry" />
 
       {/* Real-Time Appointment Notification Alert Banner */}
       {appointments.filter((a) => a.status === 'pending').length > 0 && (

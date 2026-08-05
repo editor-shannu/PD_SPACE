@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import KafkaRedisMonitor from '@/components/KafkaRedisMonitor';
 import {
   BarChart,
   Bar,
@@ -373,6 +374,9 @@ export default function AdminDashboard() {
           </button>
         ))}
       </div>
+
+      {/* Global Kafka Event Stream & Redis High-Speed Cache Telemetry */}
+      <KafkaRedisMonitor role="admin" title="Global High-Scale Infrastructure Telemetry (Kafka &amp; Redis)" />
 
       {/* SECTION 1: STATS & ANALYTICS */}
       {(activeTab === 'all' || activeTab === 'analytics') && (

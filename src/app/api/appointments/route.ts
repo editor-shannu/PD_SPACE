@@ -5,6 +5,8 @@ import { connectDB } from '@/lib/db';
 import { AppointmentModel } from '@/models/appointment';
 import { UserModel } from '@/models/user';
 import { ReferralModel } from '@/models/referral';
+import { redisCache } from '@/lib/redis';
+import { kafkaService } from '@/lib/kafka';
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,6 +16,21 @@ export async function GET(req: NextRequest) {
     }
 
     const userId = (session.user as any).id;
+    const { searchParams } = new URL(req.url);
+    const viewAll = searchParams.get('all') === 'true';
+
+    // ⚡ Redis Fast Cache Check
+    const cacheKey = `appointments:${userId}:${viewAll ? 'all' : 'user'}`;
+    const cached = await redisCache.get<any[]>(cacheKey);
+    if (cached.hit && cached.data) {
+      return NextResponse.json({
+        success: true,
+        appointments: cached.data,
+        cached: true,
+        latencyMs: cached.latencyMs,
+      });
+    }
+
     await connectDB();
 
     const currentUser: any = await UserModel.findOne({ email: session.user.email }).lean();
@@ -24,28 +41,21 @@ export async function GET(req: NextRequest) {
       userRole === 'admin' ||
       session.user.email === 'heallink.care@gmail.com';
 
-    const { searchParams } = new URL(req.url);
-    const viewAll = searchParams.get('all') === 'true' && userRole === 'admin';
-
     let appointments = [];
     if (isApprovedDoctor && !viewAll) {
       // Build all name variants for this doctor
       const rawName = (currentUser?.name || (session.user as any).name || '').trim();
-      // Strip "Dr." prefix to get the base name
       const baseName = rawName.replace(/^Dr\.\s*/i, '').trim();
-      // Full name with Dr. prefix
       const drName = `Dr. ${baseName}`;
 
       const currentUserId = currentUser?._id?.toString() || userId;
       const userEmail = (currentUser?.email || session.user.email || '').toLowerCase().trim();
 
-      // Get patient IDs referred TO this doctor
       const referrals = await ReferralModel.find({
         $or: [{ toDoctorId: currentUserId }, { toDoctorEmail: userEmail }],
       }).select('patientId').lean();
       const referredPatientIds = referrals.map((r: any) => r.patientId).filter(Boolean);
 
-      // Build name match conditions — substring (not anchored) so partial names also match
       const nameConditions: any[] = [];
       if (baseName) {
         nameConditions.push({ doctorName: new RegExp(baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') });
@@ -76,18 +86,16 @@ export async function GET(req: NextRequest) {
       appointments = await AppointmentModel.find(doctorFilter)
         .sort({ createdAt: -1 })
         .lean();
-    } else if (viewAll) {
+    } else if (viewAll && userRole === 'admin') {
       appointments = await AppointmentModel.find({})
         .sort({ createdAt: -1 })
         .lean();
     } else {
-      // Patient: show only their own appointments
       appointments = await AppointmentModel.find({ patientId: userId })
         .sort({ createdAt: -1 })
         .lean();
     }
 
-    // Enrich missing patient names from UserModel
     const enrichedAppointments = await Promise.all(
       appointments.map(async (app: any) => {
         if (!app.patientName || app.patientName === 'Patient' || app.patientName.startsWith('Patient (')) {
@@ -104,7 +112,10 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    return NextResponse.json({ success: true, appointments: enrichedAppointments || [] });
+    // Save to Redis Cache (15 seconds TTL for high dynamic traffic)
+    await redisCache.set(cacheKey, enrichedAppointments, 15);
+
+    return NextResponse.json({ success: true, appointments: enrichedAppointments || [], cached: false });
   } catch (error) {
     console.error('Fetch appointments error:', error);
     return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
@@ -119,10 +130,9 @@ export async function POST(req: NextRequest) {
     }
 
     const patientId = (session.user as any).id;
-
     await connectDB();
-    const patientUser: any = await UserModel.findById(patientId).select('name email emrProfile').lean().catch(() => null);
 
+    const patientUser: any = await UserModel.findById(patientId).select('name email emrProfile').lean().catch(() => null);
     const body = await req.json();
     const { doctorId, doctorName, hospitalId, hospitalName, department, date, time, urgency } = body;
 
@@ -151,6 +161,19 @@ export async function POST(req: NextRequest) {
     });
 
     await appointment.save();
+
+    // 📡 Kafka Producer: Produce crowd event to patient-crowd-events & doctor-queue-events
+    await kafkaService.produce('patient-crowd-events', {
+      action: `Patient ${patientName} queued appointment with ${doctorName}`,
+      appointmentId: appointment._id,
+      patientId,
+      department,
+      urgency,
+      timestamp: new Date().toISOString(),
+    }, 'patient');
+
+    // ⚡ Clear Redis Cache
+    await redisCache.clearPattern('appointments:*');
 
     return NextResponse.json({ success: true, appointment }, { status: 201 });
   } catch (error) {
@@ -186,8 +209,6 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing appointmentId' }, { status: 400 });
     }
 
-    await connectDB();
-
     const appointment = await AppointmentModel.findById(appointmentId);
     if (!appointment) {
       return NextResponse.json({ success: false, error: 'Appointment not found' }, { status: 404 });
@@ -208,9 +229,22 @@ export async function PUT(req: NextRequest) {
 
     await appointment.save();
 
+    // 📡 Kafka Producer: Produce doctor queue dispatch event
+    await kafkaService.produce('doctor-queue-events', {
+      action: `Doctor updated appointment ${appointmentId} to status '${status}'`,
+      appointmentId: appointment._id,
+      patientName: appointment.patientName,
+      status,
+      timestamp: new Date().toISOString(),
+    }, 'doctor');
+
+    // ⚡ Invalidate Redis Cache
+    await redisCache.clearPattern('appointments:*');
+
     return NextResponse.json({ success: true, appointment });
   } catch (error) {
     console.error('Update appointment error:', error);
     return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
   }
 }
+

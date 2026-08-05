@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { redisCache } from '@/lib/redis';
+import { kafkaService } from '@/lib/kafka';
 
 // ── Helper: create a fetch with a manual timeout ─────────────────────────────
 async function fetchWithTimeout(url: string, options: RequestInit, ms: number): Promise<Response> {
@@ -81,6 +83,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'Name is required' }, { status: 400 });
   }
 
+  // ⚡ Redis Cache Check
+  const cacheKey = `facility:info:${encodeURIComponent(name.toLowerCase())}`;
+  const cached = await redisCache.get<any>(cacheKey);
+  if (cached.hit && cached.data) {
+    return NextResponse.json({
+      ...cached.data,
+      cached: true,
+      latencyMs: cached.latencyMs,
+    });
+  }
+
   const geminiKey = process.env.GEMINI_API_KEY;
   const googleKey = process.env.GOOGLE_PLACES_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
@@ -90,7 +103,6 @@ export async function GET(req: NextRequest) {
     (async (): Promise<string> => {
       if (!geminiKey) throw new Error('No Gemini key');
 
-      // Unique-per-hospital prompt — starts with hospital name, mentions location
       const prompt = `Write a 2-sentence description (max 50 words) for a medical facility search result.
 
 Facility name: "${name}"
@@ -125,11 +137,29 @@ Rules:
 
   const placeData = placeResult.status === 'fulfilled' ? placeResult.value : null;
 
-  return NextResponse.json({
+  const resultData = {
     success: true,
     summary,
     phone: placeData?.phone ?? null,
     rating: placeData?.rating ?? null,
     fromGemini: summaryResult.status === 'fulfilled',
+  };
+
+  // ⚡ Store in Redis (1 hour TTL)
+  await redisCache.set(cacheKey, resultData, 3600);
+
+  // 📡 Produce Kafka crowd stream message
+  await kafkaService.produce('hospital-crowd-events', {
+    action: `Hospital facility search query processed for ${name}`,
+    name,
+    address,
+    type,
+    timestamp: new Date().toISOString(),
+  }, 'hospitaladmin');
+
+  return NextResponse.json({
+    ...resultData,
+    cached: false,
   });
 }
+
