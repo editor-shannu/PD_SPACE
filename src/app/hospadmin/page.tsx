@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import Link from 'next/link';
-import KafkaRedisMonitor from '@/components/KafkaRedisMonitor';
 
 export default function HospitalAdminPage() {
   const { data: session, status } = useSession();
@@ -437,8 +436,6 @@ export default function HospitalAdminPage() {
                       </div>
                     </div>
 
-                    {/* Kafka & Redis Crowd Control Stream */}
-                    <KafkaRedisMonitor role="hospitaladmin" title="Hospital ER & Crowd Capacity Telemetry Engine" />
 
                     {/* Quick Doctor Join Approvals Preview */}
                     <div className="p-6 rounded-3xl bg-white/80 backdrop-blur-xl border border-white/90 shadow-sm">

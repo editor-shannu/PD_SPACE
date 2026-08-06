@@ -10,7 +10,6 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import type { Document } from '@/types/documents';
 import { useEmrProfile } from '@/components/PatientEmrGate';
-import KafkaRedisMonitor from '@/components/KafkaRedisMonitor';
 
 interface Recommendation {
   recommended_department: string;
@@ -211,9 +210,6 @@ export default function PatientDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         {/* Left Column: Quick Actions & Primary Widgets */}
         <div className="md:col-span-8 space-y-6">
-          {/* Kafka & Redis Crowd Queue & Fast Cache Engine */}
-          <KafkaRedisMonitor role="patient" title="Patient Telemetry & High-Crowd Queue Bus" />
-
           {/* Quick Navigation Grid */}
           <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl p-5 shadow-sm">
             <h3 className="text-xs font-bold text-[#003893] uppercase tracking-widest mb-3">Quick Navigation</h3>
