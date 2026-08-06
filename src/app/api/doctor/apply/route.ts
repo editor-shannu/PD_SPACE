@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { connectDB } from '@/lib/db';
 import { UserModel } from '@/models/user';
+import { kafkaService } from '@/lib/kafka';
 
 const COOLING_PERIOD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
@@ -166,6 +167,14 @@ export async function POST(req: NextRequest) {
     };
 
     await user.save();
+
+    // 📡 Kafka Producer: Produce crowd event to doctor-queue-events
+    await kafkaService.produce('doctor-queue-events', {
+      action: `Doctor verification application submitted by ${name.trim()} (${department.trim()})`,
+      doctorEmail: session.user.email,
+      department: department.trim(),
+      timestamp: new Date().toISOString(),
+    }, 'doctor');
 
     const reviewMsg = joinType === 'hospital' 
       ? `Doctor application submitted! Your request has been sent directly to ${finalAffiliation} Hospital Administration for approval.` 

@@ -73,14 +73,14 @@ class KafkaStreamService {
   }
 
   private seedInitialEvents() {
-    const sampleEvents: Array<{ topic: KafkaTopic; role: KafkaEventMessage['role']; message: string; data?: any }> = [
-      { topic: 'patient-crowd-events', role: 'patient', message: 'High-throughput appointment queue check-in', data: { patientId: 'P-1092', queuePosition: 3 } },
-      { topic: 'doctor-queue-events', role: 'doctor', message: 'Doctor Dr. Sharma assigned emergency triage case', data: { doctorId: 'D-802', priority: 'URGENT' } },
-      { topic: 'hospital-crowd-events', role: 'hospitaladmin', message: 'Hospital ER surge traffic load balanced across City Care & Apollo', data: { capacityUsage: '88%' } },
-      { topic: 'system-admin-events', role: 'mainadmin', message: 'Kafka crowd stream processed 1,240 events/sec without latency drop', data: { systemLoad: '12%' } },
+    const systemInitEvents: Array<{ topic: KafkaTopic; role: KafkaEventMessage['role']; message: string; data?: any }> = [
+      { topic: 'system-admin-events', role: 'mainadmin', message: 'MediFlow telemetry pipeline & system event bus initialized', data: { status: 'ONLINE' } },
+      { topic: 'hospital-crowd-events', role: 'hospitaladmin', message: 'Multi-tenant hospital capacity & ER monitoring bus ready', data: { status: 'ACTIVE' } },
+      { topic: 'doctor-queue-events', role: 'doctor', message: 'Doctor clinical consultation queue worker stream online', data: { status: 'LISTENING' } },
+      { topic: 'patient-crowd-events', role: 'patient', message: 'Patient portal traffic router connected to cache engine', data: { status: 'READY' } },
     ];
 
-    sampleEvents.forEach((ev, idx) => {
+    systemInitEvents.forEach((ev) => {
       this.recordEvent(ev.topic, ev.role, ev.message, ev.data);
     });
   }
@@ -169,7 +169,7 @@ class KafkaStreamService {
       status: this.isConnected ? 'connected' : 'simulated_event_bus',
       brokers: process.env.KAFKA_BROKERS ? process.env.KAFKA_BROKERS.split(',') : ['localhost:9092 (Kafka Stream)'],
       totalMessagesProcessed: this.totalProcessed,
-      throughputMsgPerSec: Math.max(throughput, 14.5), // High-throughput simulation baseline
+      throughputMsgPerSec: throughput,
       activeTopics: Array.from(this.topicsSet),
       queueBacklog: Math.floor(Math.random() * 3), // Zero or minimal backlog under high throughput
       recentEvents: this.eventHistory.slice(0, 15),

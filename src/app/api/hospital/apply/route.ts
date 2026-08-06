@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { connectDB } from '@/lib/db';
 import { HospitalModel } from '@/models/hospital';
+import { kafkaService } from '@/lib/kafka';
+import { redisCache } from '@/lib/redis';
 
 /**
  * GET /api/hospital/apply
@@ -139,6 +141,16 @@ export async function POST(req: NextRequest) {
       });
       await existingHospital.save();
     }
+
+    // 📡 Kafka Producer: Produce crowd event to hospital-crowd-events
+    await kafkaService.produce('hospital-crowd-events', {
+      action: `Hospital partner application submitted for ${name.trim()}`,
+      hospitalId,
+      contactEmail: contactEmail.trim(),
+      timestamp: new Date().toISOString(),
+    }, 'hospitaladmin');
+
+    await redisCache.clearPattern('hospitals:*');
 
     return NextResponse.json({
       success: true,
